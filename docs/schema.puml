@@ -1,0 +1,169 @@
+@startuml BugTracker Schema
+
+entity "users" as users {
+  * id : UUID
+  --
+  email : VARCHAR(255)
+  full_name : VARCHAR(255)
+  display_name : VARCHAR(100)
+  avatar_url : TEXT
+  status : VARCHAR(20)
+  password_hash : VARCHAR(255)
+  created_at : TIMESTAMPTZ
+  updated_at : TIMESTAMPTZ
+  deleted_at : TIMESTAMPTZ
+}
+
+entity "projects" as projects {
+  * id : UUID
+  --
+  name : VARCHAR(255)
+  key : VARCHAR(10)
+  description : TEXT
+  icon_url : TEXT
+  status : VARCHAR(20)
+  created_by : UUID <<FK>>
+  created_at : TIMESTAMPTZ
+  updated_at : TIMESTAMPTZ
+  deleted_at : TIMESTAMPTZ
+}
+
+entity "project_members" as project_members {
+  * id : UUID
+  --
+  project_id : UUID <<FK>>
+  user_id : UUID <<FK>>
+  role : VARCHAR(20)
+  joined_at : TIMESTAMPTZ
+  updated_at : TIMESTAMPTZ
+}
+
+entity "workflow_config" as workflow_config {
+  * id : UUID
+  --
+  project_id : UUID <<FK>>
+  issue_type : VARCHAR(20)
+  from_state : VARCHAR(50)
+  to_state : VARCHAR(50)
+  required_role : VARCHAR(20)
+}
+
+entity "sprints" as sprints {
+  * id : UUID
+  --
+  project_id : UUID <<FK>>
+  name : VARCHAR(255)
+  goal : TEXT
+  status : VARCHAR(20)
+  start_date : DATE
+  end_date : DATE
+  closed_at : TIMESTAMPTZ
+  created_by : UUID <<FK>>
+  created_at : TIMESTAMPTZ
+  updated_at : TIMESTAMPTZ
+}
+
+entity "issues" as issues {
+  * id : UUID
+  --
+  project_id : UUID <<FK>>
+  issue_number : INTEGER
+  issue_type : VARCHAR(20)
+  title : VARCHAR(500)
+  description : TEXT
+  status : VARCHAR(50)
+  priority : VARCHAR(5)
+  story_points : INTEGER
+  assignee_id : UUID <<FK>>
+  reporter_id : UUID <<FK>>
+  parent_issue_id : UUID <<FK>>
+  sprint_id : UUID <<FK>>
+  due_date : DATE
+  custom_fields : JSONB
+  version : INTEGER
+  started_at : TIMESTAMPTZ
+  completed_at : TIMESTAMPTZ
+  created_at : TIMESTAMPTZ
+  updated_at : TIMESTAMPTZ
+  deleted_at : TIMESTAMPTZ
+}
+
+entity "issue_history" as issue_history {
+  * id : UUID
+  --
+  issue_id : UUID <<FK>>
+  changed_by : UUID <<FK>>
+  field_name : VARCHAR(100)
+  old_value : TEXT
+  new_value : TEXT
+  change_reason : TEXT
+  changed_at : TIMESTAMPTZ
+}
+
+entity "labels" as labels {
+  * id : UUID
+  --
+  project_id : UUID <<FK>>
+  name : VARCHAR(100)
+  colour : VARCHAR(7)
+  created_at : TIMESTAMPTZ
+}
+
+entity "issue_labels" as issue_labels {
+  * issue_id : UUID <<FK>>
+  * label_id : UUID <<FK>>
+  --
+  added_at : TIMESTAMPTZ
+}
+
+entity "issue_watchers" as issue_watchers {
+  * issue_id : UUID <<FK>>
+  * user_id : UUID <<FK>>
+  --
+  added_at : TIMESTAMPTZ
+}
+
+entity "comments" as comments {
+  * id : UUID
+  --
+  issue_id : UUID <<FK>>
+  author_id : UUID <<FK>>
+  parent_comment_id : UUID <<FK>>
+  content : TEXT
+  is_edited : BOOLEAN
+  created_at : TIMESTAMPTZ
+  updated_at : TIMESTAMPTZ
+  deleted_at : TIMESTAMPTZ
+}
+
+' Relationships
+users ||--o{ projects : "created_by"
+users ||--o{ project_members : "user_id"
+projects ||--o{ project_members : "project_id"
+
+projects ||--o{ workflow_config : "project_id"
+projects ||--o{ sprints : "project_id"
+users ||--o{ sprints : "created_by"
+
+projects ||--o{ issues : "project_id"
+users ||--o{ issues : "assignee_id"
+users ||--o{ issues : "reporter_id"
+issues ||--o| issues : "parent_issue_id"
+sprints ||--o{ issues : "sprint_id"
+
+issues ||--o{ issue_history : "issue_id"
+users ||--o{ issue_history : "changed_by"
+
+projects ||--o{ labels : "project_id"
+
+issues ||--o{ issue_labels : "issue_id"
+labels ||--o{ issue_labels : "label_id"
+
+issues ||--o{ issue_watchers : "issue_id"
+users ||--o{ issue_watchers : "user_id"
+
+issues ||--o{ comments : "issue_id"
+users ||--o{ comments : "author_id"
+comments ||--o| comments : "parent_comment_id"
+
+@enduml
