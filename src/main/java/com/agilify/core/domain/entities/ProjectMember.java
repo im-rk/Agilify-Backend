@@ -4,6 +4,7 @@ import java.util.UUID;
 
 import com.agilify.core.domain.enums.ProjectRole;
 
+import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -26,6 +27,7 @@ import lombok.Setter;
 @Table(name = "project_members", uniqueConstraints = {
     @UniqueConstraint(name = "project_members_unique", columnNames = {"project_id", "user_id"})
 })
+@AttributeOverride(name = "createdAt", column = @Column(name = "joined_at", nullable = false, updatable = false))
 @Getter
 @Setter
 @NoArgsConstructor
