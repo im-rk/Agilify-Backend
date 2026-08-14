@@ -5,7 +5,7 @@ import com.agilify.core.auth.dto.LoginRequest;
 import com.agilify.core.auth.dto.RegisterRequest;
 import com.agilify.core.common.security.JwtService;
 import com.agilify.core.domain.entities.User;
-import com.agilify.core.domain.repositories.UserRepository;
+import com.agilify.core.auth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;

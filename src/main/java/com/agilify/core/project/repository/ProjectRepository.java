@@ -11,15 +11,16 @@ import java.util.UUID;
 
 public interface ProjectRepository extends JpaRepository<Project, UUID> {
     
-    boolean existsByKey(String key);
+    @Query(value = "SELECT EXISTS(SELECT 1 FROM projects WHERE key = :key)", nativeQuery = true)
+    boolean existsByKey(@Param("key") String key);
 
-    Optional<Project> findByKeyAndDeletedAtIsNull(String key);
+    @Query(value = "SELECT * FROM projects WHERE key = :key AND deleted_at IS NULL", nativeQuery = true)
+    Optional<Project> findByKeyAndDeletedAtIsNull(@Param("key") String key);
 
-    // Fetch all active projects where the user is a member
-    @Query("""
-        SELECT p FROM Project p 
-        JOIN ProjectMember pm ON p.id = pm.project.id 
-        WHERE pm.user.id = :userId AND p.deletedAt IS NULL
-    """)
+    @Query(value = """
+        SELECT p.* FROM projects p 
+        JOIN project_members pm ON p.id = pm.project_id 
+        WHERE pm.user_id = :userId AND p.deleted_at IS NULL
+    """, nativeQuery = true)
     List<Project> findAllActiveByUserId(@Param("userId") UUID userId);
 }
