@@ -16,7 +16,7 @@ import com.agilify.core.project.dto.UpdateProjectRequest;
 import com.agilify.core.project.mapper.ProjectMapper;
 import com.agilify.core.project.repository.ProjectMemberRepository;
 import com.agilify.core.project.repository.ProjectRepository;
-import com.agilify.core.domain.repositories.WorkflowConfigRepository;
+import com.agilify.core.project.repository.WorkflowConfigRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

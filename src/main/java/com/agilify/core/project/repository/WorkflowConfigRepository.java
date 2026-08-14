@@ -1,11 +1,9 @@
-package com.agilify.core.domain.repositories;
+package com.agilify.core.project.repository;
 
 import com.agilify.core.domain.entities.WorkflowConfig;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import java.util.UUID;
 
-@Repository
 public interface WorkflowConfigRepository extends JpaRepository<WorkflowConfig, UUID> {
 }
