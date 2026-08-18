@@ -6,7 +6,7 @@
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
 		<version>3.3.4</version>
-		<relativePath/> <!-- lookup parent from repository -->
+		<relativePath/>
 	</parent>
 	<groupId>com.agilify</groupId>
 	<artifactId>core</artifactId>
@@ -81,7 +81,6 @@
             <version>1.5.5.Final</version>
         </dependency>
 
-        <!-- JSON Web Token (JJWT) for generating and validating tokens -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
