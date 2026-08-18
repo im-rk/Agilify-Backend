@@ -113,6 +113,15 @@ public class ProjectService {
         memberRepo.save(newMember);
     }
 
+    @Transactional
+    public void deleteProject(String key, UUID userId) {
+        Project project = getProjectEntityByKey(key);
+        verifyAdminAccess(project.getId(), userId);
+
+        project.setDeletedAt(java.time.LocalDateTime.now());
+        projectRepo.save(project);
+    }
+
     // --- Helper Methods ---
 
     private Project getProjectEntityByKey(String key) {
