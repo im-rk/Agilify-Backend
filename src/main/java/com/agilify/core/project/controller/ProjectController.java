@@ -58,4 +58,12 @@ public class ProjectController {
         projectService.addMember(key, request, userId);
         return ApiResponse.ok(null);
     }
+
+    @DeleteMapping("/{key}")
+    public ApiResponse<Void> deleteProject(
+            @PathVariable String key,
+            @CurrentUser UUID userId) {
+        projectService.deleteProject(key, userId);
+        return ApiResponse.ok(null);
+    }
 }
