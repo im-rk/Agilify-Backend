@@ -118,7 +118,7 @@ public class ProjectService {
         Project project = getProjectEntityByKey(key);
         verifyAdminAccess(project.getId(), userId);
 
-        project.setDeletedAt(java.time.LocalDateTime.now());
+        project.setDeletedAt(java.time.Instant.now());
         projectRepo.save(project);
     }
 
