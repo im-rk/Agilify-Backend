@@ -9,10 +9,7 @@ import com.agilify.core.domain.entities.User;
 import com.agilify.core.domain.entities.WorkflowConfig;
 import com.agilify.core.domain.enums.IssueType;
 import com.agilify.core.domain.enums.ProjectRole;
-import com.agilify.core.project.dto.AddMemberRequest;
-import com.agilify.core.project.dto.CreateProjectRequest;
-import com.agilify.core.project.dto.ProjectResponse;
-import com.agilify.core.project.dto.UpdateProjectRequest;
+import com.agilify.core.project.dto.*;
 import com.agilify.core.project.mapper.ProjectMapper;
 import com.agilify.core.project.repository.ProjectMemberRepository;
 import com.agilify.core.project.repository.ProjectRepository;
@@ -111,6 +108,42 @@ public class ProjectService {
                 .build();
 
         memberRepo.save(newMember);
+    }
+
+    @Transactional
+    public void removeMember(String key, UUID userId, UUID requesterId) {
+        Project project = getProjectEntityByKey(key);
+        verifyAdminAccess(project.getId(), requesterId);
+
+        ProjectMember memberToRemove = memberRepo.findByProjectIdAndUserId(project.getId(), userId)
+                .orElseThrow(() -> new NotFoundException("User is not a member of this project."));
+
+        if (userId.equals(requesterId)) {
+            long adminCount = memberRepo.countByProjectIdAndRole(project.getId(), ProjectRole.ADMIN);
+            if (adminCount <= 1) {
+                throw new ConflictException("Cannot remove the last administrator of the project.");
+            }
+        }
+
+        memberRepo.delete(memberToRemove);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProjectMemberResponse> getProjectMembers(String projectKey, UUID currentUserId) {
+        Project project = getProjectEntityByKey(projectKey);
+
+        // Security check: ensure the requester is actually in the project
+        verifyMembership(project.getId(), currentUserId);
+
+        return memberRepo.findAllByProjectId(project.getId())
+                .stream()
+                .map(member -> new ProjectMemberResponse(
+                        member.getUser().getId(),
+                        member.getUser().getFullName(),
+                        member.getUser().getEmail(),
+                        member.getRole().name()
+                ))
+                .toList();
     }
 
     @Transactional
