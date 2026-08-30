@@ -19,7 +19,6 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, UU
     
     @Query(value = "SELECT * FROM project_members WHERE project_id = :projectId AND user_id = :userId", nativeQuery = true)
     Optional<ProjectMember> findByProjectIdAndUserId(@Param("projectId") UUID projectId, @Param("userId") UUID userId);
-
     long countByProjectIdAndRole(UUID projectId, ProjectRole role);
 
     @EntityGraph(attributePaths = {"user"})
