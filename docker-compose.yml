@@ -23,6 +23,17 @@ services:
       - bugtracker_redisdata:/data
     restart: unless-stopped
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.1
+    container_name: bugtracker-keycloak
+    command: start-dev
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    ports:
+      - "8081:8080"
+    restart: unless-stopped
+
 volumes:
   bugtracker_pgdata:
   bugtracker_redisdata:
