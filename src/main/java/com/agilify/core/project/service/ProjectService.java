@@ -84,7 +84,7 @@ public class ProjectService {
     }
 
     @Transactional
-    public ProjectResponse updateProject(String key, UpdateProjectRequest request, UUID userId)
+    public ProjectResponse updateProject(String key, UpdateProjectRequest request)
     {
         String normalizedKey=key.trim().toUpperCase();
         Project project=projectRepository.findByKey(normalizedKey)
@@ -95,4 +95,44 @@ public class ProjectService {
         return projectMapper.toResponse(updatedProject);
     }
 
+    @Transactional
+    public void addMember(String key, AddMemberRequest request)
+    {
+        String normalizedKey=key.trim().toUpperCase();
+        Project project=projectRepository.findByKey(normalizedKey)
+                .orElseThrow(()->new NotFoundException("Project Not found with key: "+normalizedKey));
+
+        // Check if the user is already a member
+        if (projectMemberRepository.existsByProjectIdAndUserId(project.getId(), request.getUserId())) {
+            throw new ConflictException("User is already a member of the project.");
+        }
+
+        // Get a proxy reference to the User without running a DB query
+        User userToAdd = userRepository.getReferenceById(request.getUserId());
+
+        // Create and save the new ProjectMember
+        ProjectMember newMember = ProjectMember.builder()
+                .project(project)
+                .user(userToAdd)
+                .role(request.getRole())
+                .build();
+
+        projectMemberRepository.save(newMember);
+    }
+
+    @Transactional
+    public void removeMember(String key, UUID memberId) {
+        String normalizedKey = key.trim().toUpperCase();
+
+        // 1. Find the project
+        Project project = projectRepository.findByKey(normalizedKey)
+                .orElseThrow(() -> new NotFoundException("Project not found with key: " + normalizedKey));
+
+        // 2. Find the membership record
+        ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(project.getId(), memberId)
+                .orElseThrow(() -> new NotFoundException("User is not a member of this project"));
+
+        // 3. Remove the member
+        projectMemberRepository.delete(member);
+    }
 }
