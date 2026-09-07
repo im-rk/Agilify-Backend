@@ -47,12 +47,40 @@ public class ProjectController {
         return ResponseEntity.ok(response);
     }
 
+    @PreAuthorize("@projectSecurity.hasRole(#key, #userId.toString(), 'ADMIN')")
+    @PutMapping("/{key}")
     public ResponseEntity<ProjectResponse> updateProject(
             @PathVariable String key,
             @Valid @RequestBody UpdateProjectRequest request,
             @CurrentUser UUID userId
     )
     {
+        ProjectResponse response = projectService.updateProject(key, request);
+        return ResponseEntity.ok(response);
+    }
 
+    @PreAuthorize("@projectSecurity.hasRole(#key, #userId.toString(), 'ADMIN')")
+    @GetMapping("/{key}/members")
+    public ResponseEntity<Void> addMember(
+            @PathVariable String key,
+            @Valid @RequestBody AddMemberRequest request,
+            @CurrentUser UUID userId
+    )
+    {
+        projectService.addMember(key,request);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+
+    @PreAuthorize("@projectSecurity.hasRole(#key, #userId.toString(), 'ADMIN')")
+
+    @DeleteMapping("/{key}/members/{memberId}")
+    public ResponseEntity<Void> removeMember(
+            @PathVariable String key,
+            @PathVariable UUID memberId,
+            @CurrentUser UUID userId) {
+
+        projectService.removeMember(key, memberId);
+        return ResponseEntity.noContent().build();
     }
 }
