@@ -2,8 +2,10 @@ package com.agilify.core.project.mapper;
 
 import com.agilify.core.domain.entities.Project;
 import com.agilify.core.project.dto.ProjectResponse;
+import com.agilify.core.project.dto.UpdateProjectRequest;
 import org.mapstruct.Mapper;
 import org.mapstruct.MappingConstants;
+import org.mapstruct.MappingTarget;
 import org.mapstruct.ReportingPolicy;
 
 import java.util.List;
@@ -13,4 +15,8 @@ public interface ProjectMapper {
     ProjectResponse toResponse(Project project);
 
     List<ProjectResponse> toResponseList(List<Project> projects);
+
+    void updateProjectFromRequest(UpdateProjectRequest request, @MappingTarget Project project);
+
+
 }

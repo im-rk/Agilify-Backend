@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -35,4 +36,23 @@ public class ProjectController {
         return ResponseEntity.ok(projects);
     }
 
+    @PreAuthorize("@projectSecurity.isMember(#key, #userId)")
+    @GetMapping("/{key}")
+    public ResponseEntity<ProjectResponse> getProject(
+            @PathVariable String key,
+            @CurrentUser UUID userId
+    )
+    {
+        ProjectResponse response=projectService.getProjectByKey(key);
+        return ResponseEntity.ok(response);
+    }
+
+    public ResponseEntity<ProjectResponse> updateProject(
+            @PathVariable String key,
+            @Valid @RequestBody UpdateProjectRequest request,
+            @CurrentUser UUID userId
+    )
+    {
+
+    }
 }

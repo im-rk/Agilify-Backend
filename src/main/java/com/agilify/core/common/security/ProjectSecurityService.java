@@ -54,4 +54,16 @@ public class ProjectSecurityService {
         }
         return false;
     }
+
+    public boolean isMember(String projectKey, String userId) {
+        if (projectKey == null || userId == null) {
+            return false;
+        }
+
+        // Convert the String userId from the JWT/Context into a UUID
+        UUID userUuid = UUID.fromString(userId);
+
+        // Call the new repository method
+        return projectMemberRepository.existsByProjectKeyAndUserId(projectKey.toUpperCase(), userUuid);
+    }
 }

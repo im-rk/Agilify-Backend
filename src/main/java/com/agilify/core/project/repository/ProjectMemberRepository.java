@@ -26,4 +26,7 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, UU
     List<ProjectMember> findAllByProjectId(UUID projectId);
 
     List<ProjectMember> findAllByUserId(UUID userId);
+
+    @Query("SELECT COUNT(pm) > 0 FROM ProjectMember pm WHERE pm.project.key = :projectKey AND pm.user.id = :userId")
+    boolean existsByProjectKeyAndUserId(@Param("projectKey") String projectKey, @Param("userId") UUID userId);
 }

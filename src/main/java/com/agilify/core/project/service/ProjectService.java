@@ -67,10 +67,32 @@ public class ProjectService {
         return projectMapper.toResponse(savedProject);
     }
 
+    @Transactional(readOnly = true)
     public List<ProjectResponse> getUserProjects(UUID userId)
     {
         List<Project> userProjects=projectRepository.findAllProjectByUserId(userId);
         return projectMapper.toResponseList(userProjects);
+    }
+
+    @Transactional(readOnly = true)
+    public ProjectResponse getProjectByKey(String key)
+    {
+        String normalizedKey=key.trim().toUpperCase();
+        Project project=projectRepository.findByKey(normalizedKey)
+                .orElseThrow(()->new NotFoundException("Project not found with key: "+normalizedKey));
+        return projectMapper.toResponse(project);
+    }
+
+    @Transactional
+    public ProjectResponse updateProject(String key, UpdateProjectRequest request, UUID userId)
+    {
+        String normalizedKey=key.trim().toUpperCase();
+        Project project=projectRepository.findByKey(normalizedKey)
+                .orElseThrow(()->new NotFoundException("Project Not found with key: "+normalizedKey));
+
+        projectMapper.updateProjectFromRequest(request,project);
+        Project updatedProject=projectRepository.save(project);
+        return projectMapper.toResponse(updatedProject);
     }
 
 }
