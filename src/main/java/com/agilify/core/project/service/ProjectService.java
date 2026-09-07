@@ -1,5 +1,6 @@
 package com.agilify.core.project.service;
 
+import com.agilify.core.auth.repository.UserRepository;
 import com.agilify.core.common.exception.ConflictException;
 import com.agilify.core.common.exception.ForbiddenException;
 import com.agilify.core.common.exception.NotFoundException;
@@ -26,180 +27,50 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ProjectService {
 
-    private final ProjectRepository projectRepo;
-    private final ProjectMemberRepository memberRepo;
-    private final WorkflowConfigRepository workflowRepo;
+    private final ProjectRepository projectRepository;
+    private final ProjectMemberRepository projectMemberRepository;
     private final ProjectMapper projectMapper;
+    private final UserRepository userRepository;
 
     @Transactional
-    public ProjectResponse createProject(CreateProjectRequest req, UUID creatorId) {
-        if (projectRepo.existsByKey(req.getKey())) {
-            throw new ConflictException("Project key " + req.getKey() + " is already in use.");
+    public ProjectResponse createProject(CreateProjectRequest request,UUID creatorId)
+    {
+        String normalizedKey = request.getKey().trim().toUpperCase();
+
+        if (projectRepository.existsByKey(normalizedKey)) {
+            throw new IllegalArgumentException("Project key already exists: " + normalizedKey);
         }
 
-        User creatorRef = new User();
-        creatorRef.setId(creatorId);
+        // Get a proxy reference to the User without running a DB query
+        User creator = userRepository.getReferenceById(creatorId);
 
+        // 1. Build and save the Project
         Project project = Project.builder()
-                .name(req.getName())
-                .key(req.getKey().toUpperCase())
-                .description(req.getDescription())
-                .createdBy(creatorRef)
+                .name(request.getName().trim())
+                .key(normalizedKey)
+                .description(request.getDescription() != null ? request.getDescription().trim() : null)
+                .createdBy(creator) // Pass the User entity
+                // status and iconUrl are handled by defaults or left null
                 .build();
-        
-        project = projectRepo.save(project);
 
-        // Assign creator as ADMIN
+        Project savedProject = projectRepository.save(project);
+
+        // 2. Build and save the Creator as ADMIN in ProjectMember
         ProjectMember adminMember = ProjectMember.builder()
-                .project(project)
-                .user(creatorRef)
+                .project(savedProject) // Pass the Project entity
+                .user(creator)         // Pass the User entity
                 .role(ProjectRole.ADMIN)
                 .build();
-        memberRepo.save(adminMember);
 
-        seedDefaultWorkflows(project);
+        projectMemberRepository.save(adminMember);
 
-        return projectMapper.toResponse(project);
+        return projectMapper.toResponse(savedProject);
     }
 
-    @Transactional(readOnly = true)
-    public List<ProjectResponse> getMyProjects(UUID userId) {
-        return projectRepo.findAllActiveByUserId(userId).stream()
-                .map(projectMapper::toResponse)
-                .collect(Collectors.toList());
+    public List<ProjectResponse> getUserProjects(UUID userId)
+    {
+        List<Project> userProjects=projectRepository.findAllProjectByUserId(userId);
+        return projectMapper.toResponseList(userProjects);
     }
 
-    @Transactional(readOnly = true)
-    public ProjectResponse getProjectByKey(String key, UUID userId) {
-        Project project = getProjectEntityByKey(key);
-        verifyMembership(project.getId(), userId);
-        return projectMapper.toResponse(project);
-    }
-
-    @Transactional
-    public ProjectResponse updateProject(String key, UpdateProjectRequest req, UUID userId) {
-        Project project = getProjectEntityByKey(key);
-        verifyAdminAccess(project.getId(), userId);
-
-        if (req.getName() != null) project.setName(req.getName());
-        if (req.getDescription() != null) project.setDescription(req.getDescription());
-        if (req.getIconUrl() != null) project.setIconUrl(req.getIconUrl());
-        if (req.getStatus() != null) project.setStatus(req.getStatus());
-
-        return projectMapper.toResponse(projectRepo.save(project));
-    }
-
-    @Transactional
-    public void addMember(String key, AddMemberRequest req, UUID requesterId) {
-        Project project = getProjectEntityByKey(key);
-        verifyAdminAccess(project.getId(), requesterId);
-
-        if (memberRepo.existsByProjectIdAndUserId(project.getId(), req.getUserId())) {
-            throw new ConflictException("User is already a member of this project.");
-        }
-
-        User newUserRef = new User();
-        newUserRef.setId(req.getUserId());
-
-        ProjectMember newMember = ProjectMember.builder()
-                .project(project)
-                .user(newUserRef)
-                .role(req.getRole())
-                .build();
-
-        memberRepo.save(newMember);
-    }
-
-    @Transactional
-    public void removeMember(String key, UUID userId, UUID requesterId) {
-        Project project = getProjectEntityByKey(key);
-        verifyAdminAccess(project.getId(), requesterId);
-
-        ProjectMember memberToRemove = memberRepo.findByProjectIdAndUserId(project.getId(), userId)
-                .orElseThrow(() -> new NotFoundException("User is not a member of this project."));
-
-        if (userId.equals(requesterId)) {
-            long adminCount = memberRepo.countByProjectIdAndRole(project.getId(), ProjectRole.ADMIN);
-            if (adminCount <= 1) {
-                throw new ConflictException("Cannot remove the last administrator of the project.");
-            }
-        }
-
-        memberRepo.delete(memberToRemove);
-    }
-
-    @Transactional(readOnly = true)
-    public List<ProjectMemberResponse> getProjectMembers(String projectKey, UUID currentUserId) {
-        Project project = getProjectEntityByKey(projectKey);
-
-        // Security check: ensure the requester is actually in the project
-        verifyMembership(project.getId(), currentUserId);
-
-        return memberRepo.findAllByProjectId(project.getId())
-                .stream()
-                .map(member -> new ProjectMemberResponse(
-                        member.getUser().getId(),
-                        member.getUser().getFullName(),
-                        member.getUser().getEmail(),
-                        member.getRole().name()
-                ))
-                .toList();
-    }
-
-    @Transactional
-    public void deleteProject(String key, UUID userId) {
-        Project project = getProjectEntityByKey(key);
-        verifyAdminAccess(project.getId(), userId);
-
-        project.setDeletedAt(java.time.Instant.now());
-        projectRepo.save(project);
-    }
-
-    // --- Helper Methods ---
-
-    private Project getProjectEntityByKey(String key) {
-        return projectRepo.findByKeyAndDeletedAtIsNull(key.toUpperCase())
-                .orElseThrow(() -> new NotFoundException("Project not found: " + key));
-    }
-
-    private void verifyMembership(UUID projectId, UUID userId) {
-        if (!memberRepo.existsByProjectIdAndUserId(projectId, userId)) {
-            throw new ForbiddenException("You do not have access to this project.");
-        }
-    }
-
-    private void verifyAdminAccess(UUID projectId, UUID userId) {
-        ProjectMember member = memberRepo.findByProjectIdAndUserId(projectId, userId)
-                .orElseThrow(() -> new ForbiddenException("You do not have access to this project."));
-        
-        if (member.getRole() != ProjectRole.ADMIN) {
-            throw new ForbiddenException("Only project ADMINs can perform this action.");
-        }
-    }
-
-    private void seedDefaultWorkflows(Project project) {
-        List<WorkflowConfig> configs = List.of(
-            wf(project, IssueType.BUG, "BACKLOG", "TODO"),
-            wf(project, IssueType.BUG, "TODO", "IN_PROGRESS"),
-            wf(project, IssueType.BUG, "IN_PROGRESS", "IN_REVIEW"),
-            wf(project, IssueType.BUG, "IN_REVIEW", "DONE"),
-            wf(project, IssueType.BUG, "IN_REVIEW", "REJECTED"),
-            wf(project, IssueType.BUG, "REJECTED", "IN_PROGRESS"),
-            wf(project, IssueType.STORY, "BACKLOG", "TODO"),
-            wf(project, IssueType.STORY, "TODO", "IN_PROGRESS"),
-            wf(project, IssueType.STORY, "IN_PROGRESS", "DONE"),
-            wf(project, IssueType.TASK, "TODO", "IN_PROGRESS"),
-            wf(project, IssueType.TASK, "IN_PROGRESS", "DONE")
-        );
-        workflowRepo.saveAll(configs);
-    }
-
-    private WorkflowConfig wf(Project project, IssueType type, String from, String to) {
-        return WorkflowConfig.builder()
-                .project(project)
-                .issueType(type)
-                .fromState(from)
-                .toState(to)
-                .build();
-    }
 }

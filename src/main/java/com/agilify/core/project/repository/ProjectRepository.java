@@ -13,4 +13,7 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
     
     Optional<Project> findByKey(String key);
     boolean existsByKey(String key);
+
+    @Query(value = "SELECT p.* FROM projects p JOIN project_members pm ON p.id = pm.project_id WHERE pm.user_id = :userId", nativeQuery = true)
+    List<Project> findAllProjectByUserId(@Param("userId") UUID userId);
 }
