@@ -1,6 +1,7 @@
 package com.agilify.core.issue.service;
 
 import com.agilify.core.auth.repository.UserRepository;
+import com.agilify.core.common.exception.NotFoundException;
 import com.agilify.core.domain.entities.Issue;
 import com.agilify.core.domain.entities.Project;
 import com.agilify.core.domain.entities.User;
@@ -11,7 +12,9 @@ import com.agilify.core.issue.repository.IssueRepository;
 import com.agilify.core.project.repository.ProjectRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -23,6 +26,7 @@ public class IssueService {
     private final UserRepository userRepository;
     private final IssueMapper issueMapper;
 
+    @Transactional
     public IssueResponse createIssue(String key, CreateIssueRequest request, UUID reportedId)
     {
         String normalizedKey=key.trim().toUpperCase();
@@ -55,5 +59,34 @@ public class IssueService {
 
         Issue savedIssue=issueRepository.save(issue);
         return issueMapper.toResponse(savedIssue);
+    }
+
+
+    @Transactional(readOnly = true)
+    public List<IssueResponse> getProjectIssue(String key)
+    {
+        String noralizedKey=key.trim().toUpperCase();
+
+        if(!projectRepository.existsByKey(noralizedKey))
+        {
+            throw new IllegalArgumentException("Project with key "+noralizedKey+" not found");
+        }
+
+        List<Issue> issues=issueRepository.findAllByProjectKeyWithDetails(noralizedKey);
+        return issueMapper.toResponseList(issues);
+    }
+
+    @Transactional(readOnly = true)
+    public IssueResponse getIssueById(String key, UUID id) {
+        String normalizedKey = key.trim().toUpperCase();
+
+        Issue issue = issueRepository.findByIdWithDetails(id)
+                .orElseThrow(() -> new NotFoundException("Issue not found with ID: " + id));
+
+        if (!issue.getProject().getKey().equals(normalizedKey)) {
+            throw new NotFoundException("Issue " + id + " does not belong to project " + normalizedKey);
+        }
+
+        return issueMapper.toResponse(issue);
     }
 }

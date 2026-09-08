@@ -1,6 +1,7 @@
 package com.agilify.core.common.security;
 
 import com.agilify.core.domain.enums.ProjectRole;
+import com.agilify.core.issue.repository.IssueRepository;
 import com.agilify.core.project.repository.ProjectMemberRepository;
 import com.agilify.core.project.repository.ProjectRepository;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,7 @@ public class ProjectSecurityService {
 
     private final ProjectRepository projectRepository;
     private final ProjectMemberRepository projectMemberRepository;
+    private final IssueRepository issueRepository;
 
     public boolean hasRole(String projectKey, String userId, String requiredRoleName)
     {
@@ -65,5 +67,14 @@ public class ProjectSecurityService {
 
         // Call the new repository method
         return projectMemberRepository.existsByProjectKeyAndUserId(projectKey.toUpperCase(), userUuid);
+    }
+
+    public boolean isIssueMember(UUID issueId,String userId) {
+        if (issueId == null || userId == null) {
+            return false;
+        }
+        UUID userUuid=UUID.fromString(userId);
+        // Call the new repository method
+        return issueRepository.isUserMemberOfIssueProject(issueId, userUuid);
     }
 }

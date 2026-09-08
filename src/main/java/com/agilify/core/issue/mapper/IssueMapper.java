@@ -5,6 +5,8 @@ import com.agilify.core.issue.dto.IssueResponse;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
+import java.util.List;
+
 @Mapper(componentModel = "spring")
 public interface IssueMapper {
 
@@ -14,4 +16,6 @@ public interface IssueMapper {
     @Mapping(source = "reporter.id", target = "reporterId")
     @Mapping(source = "reporter.fullName", target = "reporterName")
     IssueResponse toResponse(Issue issue);
+
+    List<IssueResponse> toResponseList(List<Issue> issues);
 }
