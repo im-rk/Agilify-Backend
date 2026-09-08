@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -30,5 +31,17 @@ public class IssueController {
     {
         IssueResponse response=issueService.createIssue(key, issueRequest, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+
+    @PreAuthorize("@projectSecurity.hasRole(#key,#userId.toString(), 'VIEWER')")
+    @GetMapping("/{key}/issues/issues")
+    public ResponseEntity<List<IssueResponse>> getIssue(
+            @PathVariable String key,
+            @CurrentUser UUID userId
+    )
+    {
+        List<IssueResponse> issues=issueService.getProjectIssue(key);
+        return ResponseEntity.ok(issues);
     }
 }
