@@ -7,6 +7,7 @@ import com.agilify.core.domain.entities.Project;
 import com.agilify.core.domain.entities.User;
 import com.agilify.core.issue.dto.CreateIssueRequest;
 import com.agilify.core.issue.dto.IssueResponse;
+import com.agilify.core.issue.dto.UpdateIssueStatusRequest;
 import com.agilify.core.issue.mapper.IssueMapper;
 import com.agilify.core.issue.repository.IssueRepository;
 import com.agilify.core.project.repository.ProjectRepository;
@@ -88,5 +89,26 @@ public class IssueService {
         }
 
         return issueMapper.toResponse(issue);
+    }
+
+    public IssueResponse updateIssueStatus(String key, UUID id, UpdateIssueStatusRequest request)
+    {
+        String normalizedkey=key.trim().toUpperCase();
+
+        Issue issue=issueRepository.findByIdWithDetails(id)
+                .orElseThrow(()->new NotFoundException("Issue not found with ID: "+id));
+
+        if(!issue.getProject().getKey().equals(normalizedkey))
+        {
+            throw new NotFoundException("Issue"+id+"does not belong to this project");
+        }
+        issue.setStatus(request.status());
+
+        if("DONE".equalsIgnoreCase(request.status()))
+        {
+            issue.setCompletedAt(java.time.Instant.now());
+        }
+        Issue updatedIssue=issueRepository.save(issue);
+        return issueMapper.toResponse(updatedIssue);
     }
 }
