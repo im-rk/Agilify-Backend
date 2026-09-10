@@ -1,17 +1,18 @@
 package com.agilify.core.issue.controller;
 
 import com.agilify.core.common.security.CurrentUser;
-import com.agilify.core.issue.dto.CreateIssueRequest;
-import com.agilify.core.issue.dto.IssueResponse;
-import com.agilify.core.issue.dto.UpdateIssueStatusRequest;
+import com.agilify.core.domain.enums.IssuePriority;
+import com.agilify.core.issue.dto.*;
 import com.agilify.core.issue.service.IssueService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.awt.print.Pageable;
 import java.util.List;
 import java.util.UUID;
 
@@ -68,6 +69,53 @@ public class IssueController {
 
         IssueResponse response = issueService.updateIssueStatus(key, id, request);
         return ResponseEntity.ok(response);
+    }
+
+    @PreAuthorize("@projectSecurity.hasRole(#key, #userId.toString(), 'DEVELOPER')")
+    @PatchMapping("/projects/{key}/issues/{id}/assignee")
+    public ResponseEntity<IssueResponse> assignIssue(
+            @PathVariable String key,
+            @PathVariable UUID id,
+            @Valid @RequestBody AssignIssueRequest request,
+            @CurrentUser UUID userId) {
+
+        IssueResponse response = issueService.assignIssue(key, id, request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PreAuthorize("@projectSecurity.hasRole(#key, #userId.toString(), 'DEVELOPER')")
+    @PutMapping("/projects/{key}/issues/{id}")
+    public ResponseEntity<IssueResponse> updateIssue(
+            @PathVariable String key,
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateIssueRequest request,
+            @CurrentUser UUID userId) {
+
+        IssueResponse response = issueService.updateIssueDetails(key, id, request);
+        return ResponseEntity.ok(response);
+    }
+
+
+    @PreAuthorize("@projectSecurity.hasRole(#key, #userId.toString(), 'DEVELOPER')")
+    @DeleteMapping("/projects/{key}/issues/{id}")
+    public ResponseEntity<Void> deleteIssue(
+            @PathVariable String key,
+            @PathVariable UUID id,
+            @CurrentUser UUID userId) {
+
+        issueService.deleteIssue(key, id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PreAuthorize("@projectSecurity.isMember(#key, #userId.toString())")
+    @GetMapping("/projects/{key}/issues")
+    public ResponseEntity<Page<IssueResponse>> getProjectIssues(
+            @PathVariable String key,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) IssuePriority priority,
+            Pageable pageable,
+            @CurrentUser UUID userId) {
+        return ResponseEntity.ok(issueService.getFilteredIssues(key, status, priority, pageable));
     }
 
 }

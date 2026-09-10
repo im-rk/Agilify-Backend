@@ -5,16 +5,17 @@ import com.agilify.core.common.exception.NotFoundException;
 import com.agilify.core.domain.entities.Issue;
 import com.agilify.core.domain.entities.Project;
 import com.agilify.core.domain.entities.User;
-import com.agilify.core.issue.dto.CreateIssueRequest;
-import com.agilify.core.issue.dto.IssueResponse;
-import com.agilify.core.issue.dto.UpdateIssueStatusRequest;
+import com.agilify.core.domain.enums.IssuePriority;
+import com.agilify.core.issue.dto.*;
 import com.agilify.core.issue.mapper.IssueMapper;
 import com.agilify.core.issue.repository.IssueRepository;
 import com.agilify.core.project.repository.ProjectRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.awt.print.Pageable;
 import java.util.List;
 import java.util.UUID;
 
@@ -91,6 +92,7 @@ public class IssueService {
         return issueMapper.toResponse(issue);
     }
 
+    @Transactional
     public IssueResponse updateIssueStatus(String key, UUID id, UpdateIssueStatusRequest request)
     {
         String normalizedkey=key.trim().toUpperCase();
@@ -110,5 +112,78 @@ public class IssueService {
         }
         Issue updatedIssue=issueRepository.save(issue);
         return issueMapper.toResponse(updatedIssue);
+    }
+
+    @Transactional
+    public IssueResponse assignIssue(String key, UUID id, AssignIssueRequest request) {
+        String normalizedKey = key.trim().toUpperCase();
+
+        Issue issue = issueRepository.findByIdWithDetails(id)
+                .orElseThrow(() -> new NotFoundException("Issue not found with ID: " + id));
+
+        if (!issue.getProject().getKey().equals(normalizedKey)) {
+            throw new NotFoundException("Issue " + id + " does not belong to project " + normalizedKey);
+        }
+
+        User assignee = null;
+        if (request.assigneeId() != null) {
+            assignee = userRepository.findById(request.assigneeId())
+                    .orElseThrow(() -> new NotFoundException("Assignee not found with ID: " + request.assigneeId()));
+        }
+
+        issue.setAssignee(assignee);
+        Issue updatedIssue = issueRepository.save(issue);
+
+        return issueMapper.toResponse(updatedIssue);
+    }
+
+    @Transactional
+    public IssueResponse updateIssueDetails(String key, UUID id, UpdateIssueRequest request) {
+        String normalizedKey = key.trim().toUpperCase();
+
+        Issue issue = issueRepository.findByIdWithDetails(id)
+                .orElseThrow(() -> new NotFoundException("Issue not found with ID: " + id));
+
+        if (!issue.getProject().getKey().equals(normalizedKey)) {
+            throw new NotFoundException("Issue " + id + " does not belong to project " + normalizedKey);
+        }
+
+        issue.setTitle(request.title());
+        issue.setDescription(request.description());
+        issue.setPriority(request.priority());
+        issue.setIssueType(request.type());
+
+        Issue updatedIssue = issueRepository.save(issue);
+        return issueMapper.toResponse(updatedIssue);
+    }
+
+    @Transactional
+    public void deleteIssue(String key, UUID id) {
+        String normalizedKey = key.trim().toUpperCase();
+
+        Issue issue = issueRepository.findByIdWithDetails(id)
+                .orElseThrow(() -> new NotFoundException("Issue not found with ID: " + id));
+
+        if (!issue.getProject().getKey().equals(normalizedKey)) {
+            throw new NotFoundException("Issue " + id + " does not belong to project " + normalizedKey);
+        }
+
+        issue.setDeletedAt(java.time.Instant.now());
+        issueRepository.save(issue);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<IssueResponse> getFilteredIssues(String key, String status, IssuePriority priority, Pageable pageable) {
+        String normalizedKey = key.trim().toUpperCase();
+
+        if (!projectRepository.existsByKey(normalizedKey)) {
+            throw new NotFoundException("Project not found with key: " + normalizedKey);
+        }
+
+        Page<Issue> issuePage = issueRepository.findFilteredIssuesByProjectKey(
+                normalizedKey, status, priority, pageable
+        );
+
+        return issuePage.map(issueMapper::toResponse);
     }
 }
