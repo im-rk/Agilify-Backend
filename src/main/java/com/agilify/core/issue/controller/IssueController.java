@@ -10,13 +10,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.awt.print.Pageable;
-import java.util.List;
 import java.util.UUID;
 
 @Tag(name = "Issues", description = "Issue tracking, lifecycle, and backlog management APIs")
@@ -37,22 +36,23 @@ public class IssueController {
             @CurrentUser UUID userId
     )
     {
-        IssueResponse response=issueService.createIssue(key, issueRequest, userId);
+        IssueResponse response = issueService.createIssue(key, issueRequest, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-
-    @Operation(summary = "Get project issues", description = "Retrieves a list of issues for a project. Requires VIEWER role.")
+    @Operation(summary = "Get project issues", description = "Returns a paginated and filtered list of issues for a project. Requires project membership.")
     @ApiResponse(responseCode = "200", description = "Issues retrieved successfully")
-    @PreAuthorize("@projectSecurity.hasRole(#key,#userId.toString(), 'VIEWER')")
-    @GetMapping("/{key}/issues/issues")
-    public ResponseEntity<List<IssueResponse>> getIssue(
+    @PreAuthorize("@projectSecurity.isMember(#key, #userId.toString())")
+    @GetMapping("/{key}/issues")
+    public ResponseEntity<Page<IssueResponse>> getProjectIssues(
             @PathVariable String key,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) IssuePriority priority,
+            Pageable pageable,
             @CurrentUser UUID userId
     )
     {
-        List<IssueResponse> issues=issueService.getProjectIssue(key);
-        return ResponseEntity.ok(issues);
+        return ResponseEntity.ok(issueService.getFilteredIssues(key, status, priority, pageable));
     }
 
     @Operation(summary = "Get issue by ID", description = "Retrieves issue details by its UUID.")
@@ -65,20 +65,21 @@ public class IssueController {
             @CurrentUser UUID userId
     )
     {
-        IssueResponse issue=issueService.getIssueById(key, id);
+        IssueResponse issue = issueService.getIssueById(key, id);
         return ResponseEntity.ok(issue);
     }
 
     @Operation(summary = "Update issue status", description = "Transitions an issue to a new status according to workflow rules. Requires DEVELOPER role.")
     @ApiResponse(responseCode = "200", description = "Status updated successfully")
     @PreAuthorize("@projectSecurity.hasRole(#key, #userId.toString(), 'DEVELOPER')")
-    @PatchMapping("/projects/{key}/issues/{id}/status")
+    @PatchMapping("/{key}/issues/{id}/status")
     public ResponseEntity<IssueResponse> updateIssueStatus(
             @PathVariable String key,
             @PathVariable UUID id,
             @Valid @RequestBody UpdateIssueStatusRequest request,
-            @CurrentUser UUID userId) {
-
+            @CurrentUser UUID userId
+    )
+    {
         IssueResponse response = issueService.updateIssueStatus(key, id, request);
         return ResponseEntity.ok(response);
     }
@@ -86,13 +87,14 @@ public class IssueController {
     @Operation(summary = "Assign issue", description = "Assigns an issue to a user. Requires DEVELOPER role.")
     @ApiResponse(responseCode = "200", description = "Issue assigned successfully")
     @PreAuthorize("@projectSecurity.hasRole(#key, #userId.toString(), 'DEVELOPER')")
-    @PatchMapping("/projects/{key}/issues/{id}/assignee")
+    @PatchMapping("/{key}/issues/{id}/assignee")
     public ResponseEntity<IssueResponse> assignIssue(
             @PathVariable String key,
             @PathVariable UUID id,
             @Valid @RequestBody AssignIssueRequest request,
-            @CurrentUser UUID userId) {
-
+            @CurrentUser UUID userId
+    )
+    {
         IssueResponse response = issueService.assignIssue(key, id, request);
         return ResponseEntity.ok(response);
     }
@@ -100,13 +102,14 @@ public class IssueController {
     @Operation(summary = "Update issue details", description = "Updates title, description, priority, story points, due date, etc. Requires DEVELOPER role.")
     @ApiResponse(responseCode = "200", description = "Issue updated successfully")
     @PreAuthorize("@projectSecurity.hasRole(#key, #userId.toString(), 'DEVELOPER')")
-    @PutMapping("/projects/{key}/issues/{id}")
+    @PutMapping("/{key}/issues/{id}")
     public ResponseEntity<IssueResponse> updateIssue(
             @PathVariable String key,
             @PathVariable UUID id,
             @Valid @RequestBody UpdateIssueRequest request,
-            @CurrentUser UUID userId) {
-
+            @CurrentUser UUID userId
+    )
+    {
         IssueResponse response = issueService.updateIssueDetails(key, id, request);
         return ResponseEntity.ok(response);
     }
@@ -114,27 +117,14 @@ public class IssueController {
     @Operation(summary = "Delete issue", description = "Soft-deletes an issue. Requires DEVELOPER role.")
     @ApiResponse(responseCode = "204", description = "Issue deleted successfully")
     @PreAuthorize("@projectSecurity.hasRole(#key, #userId.toString(), 'DEVELOPER')")
-    @DeleteMapping("/projects/{key}/issues/{id}")
+    @DeleteMapping("/{key}/issues/{id}")
     public ResponseEntity<Void> deleteIssue(
             @PathVariable String key,
             @PathVariable UUID id,
-            @CurrentUser UUID userId) {
-
+            @CurrentUser UUID userId
+    )
+    {
         issueService.deleteIssue(key, id);
         return ResponseEntity.noContent().build();
     }
-
-    @Operation(summary = "Filter issues with pagination", description = "Returns a paginated and filtered list of issues for a project.")
-    @ApiResponse(responseCode = "200", description = "Paginated issues retrieved")
-    @PreAuthorize("@projectSecurity.isMember(#key, #userId.toString())")
-    @GetMapping("/projects/{key}/issues")
-    public ResponseEntity<Page<IssueResponse>> getProjectIssues(
-            @PathVariable String key,
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false) IssuePriority priority,
-            Pageable pageable,
-            @CurrentUser UUID userId) {
-        return ResponseEntity.ok(issueService.getFilteredIssues(key, status, priority, pageable));
-    }
-
 }
