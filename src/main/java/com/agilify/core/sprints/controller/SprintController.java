@@ -1,10 +1,7 @@
 package com.agilify.core.sprints.controller;
 
 import com.agilify.core.common.security.CurrentUser;
-import com.agilify.core.sprints.dto.CreateSprintRequest;
-import com.agilify.core.sprints.dto.SprintResponse;
-import com.agilify.core.sprints.dto.UpdateSprintRequest;
-import com.agilify.core.sprints.dto.UpdateSprintStatusRequest;
+import com.agilify.core.sprints.dto.*;
 import com.agilify.core.sprints.service.SprintService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -88,5 +85,17 @@ public class SprintController {
 
         sprintService.deleteSprint(key, sprintId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PreAuthorize("@projectSecurity.hasRole(#key, #userId.toString(), 'DEVELOPER')")
+    @PostMapping("/{key}/sprints/{sprintId}/complete")
+    public ResponseEntity<SprintResponse> completeSprint(
+            @PathVariable String key,
+            @PathVariable UUID sprintId,
+            @RequestBody(required = false) CompleteSprintRequest request,
+            @CurrentUser UUID userId) {
+
+        SprintResponse response = sprintService.completeSprint(key, sprintId, request);
+        return ResponseEntity.ok(response);
     }
 }

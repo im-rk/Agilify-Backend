@@ -41,4 +41,15 @@ public class BoardController {
         List<IssueResponse> backlog = boardService.getProjectBacklog(key);
         return ResponseEntity.ok(backlog);
     }
+
+    @PreAuthorize("@projectSecurity.hasRole(#key, #userId.toString(), 'DEVELOPER')")
+    @GetMapping("/{key}/sprints/{sprintId}/board")
+    public ResponseEntity<List<IssueResponse>> getSprintBoardIssues(
+            @PathVariable String key,
+            @PathVariable UUID sprintId,
+            @CurrentUser UUID userId) {
+
+        List<IssueResponse> response = boardService.getSprintBoardIssues(key, sprintId);
+        return ResponseEntity.ok(response);
+    }
 }

@@ -40,4 +40,9 @@ public interface IssueRepository extends JpaRepository<Issue, UUID> {
     );
 
     List<Issue> findByProjectKeyAndSprintIsNull(String projectKey);
+
+    List<Issue> findBySprintId(UUID sprintId);
+
+    // Find issues in a sprint where status is NOT equal to "DONE"
+    List<Issue> findBySprintIdAndStatusNot(UUID sprintId, String status);
 }
