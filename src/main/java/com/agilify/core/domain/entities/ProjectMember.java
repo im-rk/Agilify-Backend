@@ -49,6 +49,5 @@ public class ProjectMember extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 20)
-    @Builder.Default
     private ProjectRole role;
 }
