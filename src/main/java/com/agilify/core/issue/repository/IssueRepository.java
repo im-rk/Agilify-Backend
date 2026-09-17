@@ -38,4 +38,6 @@ public interface IssueRepository extends JpaRepository<Issue, UUID> {
             @Param("priority") IssuePriority priority,
             Pageable pageable
     );
+
+    List<Issue> findByProjectKeyAndSprintIsNull(String projectKey);
 }
