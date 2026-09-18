@@ -28,7 +28,7 @@ public class CommentController {
 
     @Operation(summary = "Add comment to issue", description = "Adds a root or threaded reply comment to an issue.")
     @ApiResponse(responseCode = "201", description = "Comment added successfully")
-    @PreAuthorize("@projectSecurity.hasAccessByIssue(#issueId, #userId)")
+    @PreAuthorize("@commentSecurity.hasAccessByIssue(#issueId, #userId)")
     @PostMapping
     public ResponseEntity<CommentResponse> addComment(
             @PathVariable UUID issueId,
@@ -42,7 +42,7 @@ public class CommentController {
 
     @Operation(summary = "Get comments by issue", description = "Retrieves all comments associated with an issue in chronological order.")
     @ApiResponse(responseCode = "200", description = "Comments retrieved successfully")
-    @PreAuthorize("@projectSecurity.hasAccessByIssue(#issueId, #userId)")
+    @PreAuthorize("@commentSecurity.hasAccessByIssue(#issueId, #userId)")
     @GetMapping
     public ResponseEntity<List<CommentResponse>> getCommentsByIssue(
             @PathVariable UUID issueId,

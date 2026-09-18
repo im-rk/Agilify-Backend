@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.nio.file.AccessDeniedException;
+import org.springframework.security.access.AccessDeniedException;
 import java.time.Instant;
 
 @RestControllerAdvice
@@ -44,7 +44,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler({ForbiddenException.class, AccessDeniedException.class})
-    public ResponseEntity<ErrorResponse> handleForbidden(ForbiddenException ex, HttpServletRequest request)
+    public ResponseEntity<ErrorResponse> handleForbidden(RuntimeException ex, HttpServletRequest request)
     {
         ErrorResponse error=new ErrorResponse(
                 HttpStatus.FORBIDDEN.value(),

@@ -132,7 +132,13 @@ public class ProjectService {
         ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(project.getId(), memberId)
                 .orElseThrow(() -> new NotFoundException("User is not a member of this project"));
 
-        // 3. Remove the member
+        // 3. Prevent removing the last ADMIN, which would leave the project unmanageable
+        if (member.getRole() == ProjectRole.ADMIN
+                && projectMemberRepository.countByProjectIdAndRole(project.getId(), ProjectRole.ADMIN) <= 1) {
+            throw new ConflictException("Cannot remove the sole ADMIN of the project.");
+        }
+
+        // 4. Remove the member
         projectMemberRepository.delete(member);
     }
 }

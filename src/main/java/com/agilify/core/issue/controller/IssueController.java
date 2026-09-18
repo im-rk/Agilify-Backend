@@ -57,7 +57,7 @@ public class IssueController {
 
     @Operation(summary = "Get issue by ID", description = "Retrieves issue details by its UUID.")
     @ApiResponse(responseCode = "200", description = "Issue retrieved successfully")
-    @PreAuthorize("@projectSecurity.hasRole(#key,#userId.toString())")
+    @PreAuthorize("@projectSecurity.isMember(#key, #userId.toString())")
     @GetMapping("/{key}/issues/{id}")
     public ResponseEntity<IssueResponse> getIssueById(
             @PathVariable String key,

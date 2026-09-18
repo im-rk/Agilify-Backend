@@ -11,6 +11,7 @@ import java.util.List;
 public interface IssueMapper {
 
     @Mapping(target = "issueKey", expression = "java(issue.getProject().getKey() + \"-\" + issue.getIssueNumber())")
+    @Mapping(source = "issueType", target = "type")
     @Mapping(source = "assignee.id", target = "assigneeId")
     @Mapping(source = "assignee.fullName", target = "assigneeName")
     @Mapping(source = "reporter.id", target = "reporterId")

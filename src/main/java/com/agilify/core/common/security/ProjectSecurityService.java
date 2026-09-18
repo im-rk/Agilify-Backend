@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.UUID;
 
-@Component("projectSecurity ")
+@Component("projectSecurity")
 @RequiredArgsConstructor
 public class ProjectSecurityService {
 

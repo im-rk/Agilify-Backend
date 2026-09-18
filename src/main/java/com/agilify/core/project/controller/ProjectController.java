@@ -46,7 +46,7 @@ public class ProjectController {
 
     @Operation(summary = "Get project by key", description = "Retrieves project details for a specific project key.")
     @ApiResponse(responseCode = "200", description = "Project details retrieved")
-    @PreAuthorize("@projectSecurity.isMember(#key, #userId)")
+    @PreAuthorize("@projectSecurity.isMember(#key, #userId.toString())")
     @GetMapping("/{key}")
     public ResponseEntity<ProjectResponse> getProject(
             @PathVariable String key,

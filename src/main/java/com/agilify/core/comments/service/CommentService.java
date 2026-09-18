@@ -50,7 +50,6 @@ public class CommentService {
                 .author(author)
                 .parentComment(parentComment)
                 .content(request.content().trim())
-                .isEdited(true)
                 .build();
         Comment savedComment=commentRepository.save(comment);
         return commentMapper.toResponse(savedComment);
@@ -77,10 +76,6 @@ public class CommentService {
 
         if (comment.getDeletedAt() != null) {
             throw new IllegalArgumentException("Cannot update a deleted comment");
-        }
-
-        if (!comment.getAuthor().getId().equals(userId)) {
-            throw new SecurityException("You are not authorized to edit this comment");
         }
 
         comment.setContent(request.content().trim());
