@@ -34,7 +34,7 @@ public class BoardController {
             @CurrentUser UUID userId
     )
     {
-        boardService.assignIssueToSprint(key,issueId,request);
+        boardService.assignIssueToSprint(key,issueId,request,userId);
         return ResponseEntity.ok().build();
     }
 
