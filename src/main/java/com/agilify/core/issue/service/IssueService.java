@@ -28,6 +28,7 @@ public class IssueService {
     private final UserRepository userRepository;
     private final IssueMapper issueMapper;
     private final WorkflowGuardService workflowGuard;
+    private final IssueHistoryService historyService;
 
     @Transactional
     public IssueResponse createIssue(String key, CreateIssueRequest request, UUID reportedId)
@@ -107,6 +108,7 @@ public class IssueService {
         }
         String newStatus=request.status().trim().toUpperCase();
         workflowGuard.validate(issue, newStatus, userId);
+        historyService.recordChange(issue, userId, "status", issue.getStatus(), newStatus, null);
         issue.setStatus(newStatus);
 
         if("DONE".equals(newStatus))
@@ -122,7 +124,7 @@ public class IssueService {
     }
 
     @Transactional
-    public IssueResponse assignIssue(String key, UUID id, AssignIssueRequest request) {
+    public IssueResponse assignIssue(String key, UUID id, AssignIssueRequest request, UUID userId) {
         String normalizedKey = key.trim().toUpperCase();
 
         Issue issue = issueRepository.findByIdWithDetails(id)
@@ -138,6 +140,9 @@ public class IssueService {
                     .orElseThrow(() -> new NotFoundException("Assignee not found with ID: " + request.assigneeId()));
         }
 
+        historyService.recordChange(issue, userId, "assignee_id",
+                issue.getAssignee() == null ? null : issue.getAssignee().getId(),
+                assignee == null ? null : assignee.getId(), null);
         issue.setAssignee(assignee);
         Issue updatedIssue = issueRepository.save(issue);
 
@@ -145,7 +150,7 @@ public class IssueService {
     }
 
     @Transactional
-    public IssueResponse updateIssueDetails(String key, UUID id, UpdateIssueRequest request) {
+    public IssueResponse updateIssueDetails(String key, UUID id, UpdateIssueRequest request, UUID userId) {
         String normalizedKey = key.trim().toUpperCase();
 
         Issue issue = issueRepository.findByIdWithDetails(id)
@@ -155,6 +160,10 @@ public class IssueService {
             throw new NotFoundException("Issue " + id + " does not belong to project " + normalizedKey);
         }
 
+        historyService.recordChange(issue, userId, "title", issue.getTitle(), request.title(), null);
+        historyService.recordChange(issue, userId, "description", issue.getDescription(), request.description(), null);
+        historyService.recordChange(issue, userId, "priority", issue.getPriority(), request.priority(), null);
+        historyService.recordChange(issue, userId, "issue_type", issue.getIssueType(), request.type(), null);
         issue.setTitle(request.title());
         issue.setDescription(request.description());
         issue.setPriority(request.priority());

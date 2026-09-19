@@ -16,6 +16,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import com.agilify.core.issue.service.IssueHistoryService;
+
+import java.util.List;
 import java.util.UUID;
 
 @Tag(name = "Issues", description = "Issue tracking, lifecycle, and backlog management APIs")
@@ -25,6 +28,20 @@ import java.util.UUID;
 public class IssueController {
 
     private final IssueService issueService;
+    private final IssueHistoryService historyService;
+
+    @Operation(summary = "Get issue history", description = "Chronological audit trail of field changes. Requires project membership.")
+    @ApiResponse(responseCode = "200", description = "History retrieved")
+    @PreAuthorize("@projectSecurity.isMember(#key, #userId.toString())")
+    @GetMapping("/{key}/issues/{id}/history")
+    public ResponseEntity<List<IssueHistoryResponse>> getIssueHistory(
+            @PathVariable String key,
+            @PathVariable UUID id,
+            @CurrentUser UUID userId
+    )
+    {
+        return ResponseEntity.ok(historyService.getHistory(key, id));
+    }
 
     @Operation(summary = "Create an issue", description = "Creates a new issue within the designated project. Requires DEVELOPER role.")
     @ApiResponse(responseCode = "201", description = "Issue created successfully")
@@ -95,7 +112,7 @@ public class IssueController {
             @CurrentUser UUID userId
     )
     {
-        IssueResponse response = issueService.assignIssue(key, id, request);
+        IssueResponse response = issueService.assignIssue(key, id, request, userId);
         return ResponseEntity.ok(response);
     }
 
@@ -110,7 +127,7 @@ public class IssueController {
             @CurrentUser UUID userId
     )
     {
-        IssueResponse response = issueService.updateIssueDetails(key, id, request);
+        IssueResponse response = issueService.updateIssueDetails(key, id, request, userId);
         return ResponseEntity.ok(response);
     }
 

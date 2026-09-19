@@ -113,7 +113,7 @@ public class SprintController {
             @RequestBody(required = false) CompleteSprintRequest request,
             @CurrentUser UUID userId) {
 
-        SprintResponse response = sprintService.completeSprint(key, sprintId, request);
+        SprintResponse response = sprintService.completeSprint(key, sprintId, request, userId);
         return ResponseEntity.ok(response);
     }
 }

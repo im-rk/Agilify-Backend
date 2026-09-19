@@ -29,6 +29,7 @@ public class SprintService {
     private final UserRepository userRepository;
     private final SprintMapper sprintMapper;
     private final IssueRepository issueRepository;
+    private final com.agilify.core.issue.service.IssueHistoryService historyService;
 
 
     @Transactional
@@ -156,7 +157,7 @@ public class SprintService {
     }
 
     @Transactional
-    public SprintResponse completeSprint(String projectKey, UUID sprintId, CompleteSprintRequest request) {
+    public SprintResponse completeSprint(String projectKey, UUID sprintId, CompleteSprintRequest request, UUID userId) {
         String normalizedKey = projectKey.trim().toUpperCase();
 
         projectRepository.findByKey(normalizedKey)
@@ -194,6 +195,8 @@ public class SprintService {
         }
 
         for (Issue issue : incompleteIssues) {
+            historyService.recordChange(issue, userId, "sprint_id", sprintId,
+                    rolloverSprint == null ? null : rolloverSprint.getId(), "Sprint completed");
             issue.setSprint(rolloverSprint);
         }
         issueRepository.saveAll(incompleteIssues);

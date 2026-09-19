@@ -25,9 +25,10 @@ public class BoardService {
     private final ProjectRepository projectRepository;
     private final BoardMapper boardMapper;
     private final com.agilify.core.issue.service.WorkflowGuardService workflowGuard;
+    private final com.agilify.core.issue.service.IssueHistoryService historyService;
 
     @Transactional
-    public void assignIssueToSprint(String projectKey, UUID issueId, AssignIssueSprintRequest request)
+    public void assignIssueToSprint(String projectKey, UUID issueId, AssignIssueSprintRequest request, UUID userId)
     {
         projectRepository.findByKey(projectKey.toUpperCase())
                 .orElseThrow(() -> new IllegalArgumentException("Project not found"));
@@ -54,9 +55,13 @@ public class BoardService {
             {
                 throw new IllegalStateException("Cannot assign issues to a closed sprint");
             }
+            historyService.recordChange(issue, userId, "sprint_id",
+                    issue.getSprint() == null ? null : issue.getSprint().getId(), sprint.getId(), null);
             issue.setSprint(sprint);
         }
         else {
+            historyService.recordChange(issue, userId, "sprint_id",
+                    issue.getSprint() == null ? null : issue.getSprint().getId(), null, null);
             issue.setSprint(null);
         }
         issueRepository.save(issue);
@@ -132,12 +137,15 @@ public class BoardService {
             if (!targetSprint.getProject().getKey().equalsIgnoreCase(normalizedKey)) {
                 throw new IllegalArgumentException("Target sprint does not belong to project: " + normalizedKey);
             }
+            historyService.recordChange(issue, userId, "sprint_id",
+                    issue.getSprint() == null ? null : issue.getSprint().getId(), targetSprint.getId(), null);
             issue.setSprint(targetSprint);
         }
 
         if (request.status() != null && !request.status().isBlank()) {
             String newStatus = request.status().trim().toUpperCase();
             workflowGuard.validate(issue, newStatus, userId);
+            historyService.recordChange(issue, userId, "status", issue.getStatus(), newStatus, null);
             issue.setStatus(newStatus);
         }
 
