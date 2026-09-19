@@ -104,9 +104,10 @@ public class IssueService {
         {
             throw new NotFoundException("Issue"+id+"does not belong to this project");
         }
-        issue.setStatus(request.status());
+        String newStatus=request.status().trim().toUpperCase();
+        issue.setStatus(newStatus);
 
-        if("DONE".equalsIgnoreCase(request.status()))
+        if("DONE".equals(newStatus))
         {
             issue.setCompletedAt(java.time.Instant.now());
         }

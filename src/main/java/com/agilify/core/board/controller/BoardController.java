@@ -50,9 +50,9 @@ public class BoardController {
         return ResponseEntity.ok(backlog);
     }
 
-    @Operation(summary = "Get sprint board issues", description = "Retrieves active board columns and issues for a sprint. Requires DEVELOPER role.")
+    @Operation(summary = "Get sprint board issues", description = "Retrieves active board columns and issues for a sprint. Requires VIEWER role.")
     @ApiResponse(responseCode = "200", description = "Sprint board issues retrieved")
-    @PreAuthorize("@projectSecurity.hasRole(#key, #userId.toString(), 'DEVELOPER')")
+    @PreAuthorize("@projectSecurity.hasRole(#key, #userId.toString(), 'VIEWER')")
     @GetMapping("/{key}/sprints/{sprintId}/board")
     public ResponseEntity<List<IssueResponse>> getSprintBoardIssues(
             @PathVariable String key,

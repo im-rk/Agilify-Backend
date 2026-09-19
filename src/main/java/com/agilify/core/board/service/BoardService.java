@@ -32,16 +32,26 @@ public class BoardService {
                 .orElseThrow(() -> new IllegalArgumentException("Project not found"));
 
         Issue issue=issueRepository.findById(issueId)
-                .orElseThrow(() -> new IllegalArgumentException("Issue not found"));
+                .filter(i -> i.getDeletedAt() == null)
+                .orElseThrow(() -> new NotFoundException("Issue not found"));
+
+        if(!issue.getProject().getKey().equalsIgnoreCase(projectKey.trim()))
+        {
+            throw new IllegalArgumentException("Issue does not belong to the specified project");
+        }
 
         if(request.sprintId()!=null)
         {
             Sprint sprint=sprintRepository.findById(request.sprintId())
                     .orElseThrow(() -> new IllegalArgumentException("Sprint not found"));
 
-            if(!sprint.getProject().getKey().equalsIgnoreCase(projectKey))
+            if(!sprint.getProject().getKey().equalsIgnoreCase(projectKey.trim()))
             {
                 throw new IllegalArgumentException("Sprint does not belong to the specified project");
+            }
+            if(sprint.getStatus() == com.agilify.core.domain.enums.SprintStatus.CLOSED)
+            {
+                throw new IllegalStateException("Cannot assign issues to a closed sprint");
             }
             issue.setSprint(sprint);
         }
@@ -56,7 +66,7 @@ public class BoardService {
         projectRepository.findByKey(projectKey.toUpperCase())
                 .orElseThrow(() -> new RuntimeException("Project not found: " + projectKey));
 
-        List<Issue> backlogIssues = issueRepository.findByProjectKeyAndSprintIsNull(projectKey.toUpperCase());
+        List<Issue> backlogIssues = issueRepository.findByProjectKeyAndSprintIsNullAndDeletedAtIsNull(projectKey.toUpperCase());
 
         return backlogIssues.stream()
                 .map(issue -> new IssueResponse(
@@ -85,7 +95,7 @@ public class BoardService {
             throw new IllegalArgumentException("Sprint does not belong to project: " + normalizedKey);
         }
 
-        List<Issue> sprintIssues = issueRepository.findBySprintId(sprintId);
+        List<Issue> sprintIssues = issueRepository.findBySprintIdAndDeletedAtIsNull(sprintId);
 
         return sprintIssues.stream()
                 .map(issue -> new IssueResponse(

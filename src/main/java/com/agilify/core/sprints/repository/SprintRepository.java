@@ -1,6 +1,5 @@
 package com.agilify.core.sprints.repository;
 
-import com.agilify.core.domain.entities.Issue;
 import com.agilify.core.domain.entities.Sprint;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -18,7 +17,4 @@ public interface SprintRepository extends JpaRepository<Sprint, UUID> {
     Optional<Sprint> findByIdWithCreator(@Param("sprintId") UUID sprintId);
 
     boolean existsByProjectKeyAndStatus(String projectKey, com.agilify.core.domain.enums.SprintStatus status);
-
-    // Find issues in a sprint where status is NOT equal to "DONE"
-    List<Issue> findBySprintIdAndStatusNot(UUID sprintId, String status);
 }

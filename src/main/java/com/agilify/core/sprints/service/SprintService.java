@@ -118,6 +118,11 @@ public class SprintService {
 
         SprintStatus newStatus = request.status();
 
+        // Only PLANNED -> ACTIVE goes through this endpoint; closing goes through /complete so issues get rolled over
+        if (sprint.getStatus() != SprintStatus.PLANNED || newStatus != SprintStatus.ACTIVE) {
+            throw new IllegalStateException("Only PLANNED -> ACTIVE is allowed here; use /complete to close a sprint");
+        }
+
         // If transitioning to ACTIVE, enforce that no other sprint is currently active
         if (newStatus == SprintStatus.ACTIVE && sprint.getStatus() != SprintStatus.ACTIVE) {
             boolean hasActiveSprint = sprintRepository.existsByProjectKeyAndStatus(normalizedKey, SprintStatus.ACTIVE);
@@ -127,10 +132,6 @@ public class SprintService {
         }
 
         sprint.setStatus(newStatus);
-
-        if (newStatus == SprintStatus.CLOSED) {
-            sprint.setClosedAt(java.time.Instant.now());
-        }
 
         Sprint updatedSprint = sprintRepository.save(sprint);
         return sprintMapper.toResponse(updatedSprint);
@@ -168,12 +169,16 @@ public class SprintService {
             throw new IllegalArgumentException("Sprint does not belong to project: " + normalizedKey);
         }
 
-        sprint.setStatus(SprintStatus.CLOSED);
+        if (sprint.getStatus() != SprintStatus.ACTIVE) {
+            throw new IllegalStateException("Only ACTIVE sprints can be completed");
+        }
 
+        sprint.setStatus(SprintStatus.CLOSED);
+        sprint.setClosedAt(Instant.now());
 
         Sprint savedSprint = sprintRepository.save(sprint);
 
-        List<Issue> incompleteIssues = issueRepository.findBySprintIdAndStatusNot(sprintId, "DONE");
+        List<Issue> incompleteIssues = issueRepository.findBySprintIdAndStatusNotAndDeletedAtIsNull(sprintId, "DONE");
 
         Sprint rolloverSprint = null;
         if (request != null && request.rolloverSprintId() != null) {
@@ -182,6 +187,9 @@ public class SprintService {
 
             if (!rolloverSprint.getProject().getKey().equalsIgnoreCase(normalizedKey)) {
                 throw new IllegalArgumentException("Rollover sprint does not belong to this project");
+            }
+            if (rolloverSprint.getStatus() == SprintStatus.CLOSED) {
+                throw new IllegalStateException("Cannot roll issues over into a closed sprint");
             }
         }
 

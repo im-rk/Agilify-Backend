@@ -18,13 +18,13 @@ public interface IssueRepository extends JpaRepository<Issue, UUID> {
     @Query("SELECT MAX(i.issueNumber) FROM Issue i WHERE i.project.id = :projectId")
     Optional<Integer> findMaxIssueNumberByProjectId(@Param("projectId") UUID projectId);
 
-    @Query("SELECT i FROM Issue i JOIN FETCH i.project p LEFT JOIN FETCH i.assignee a LEFT JOIN FETCH i.reporter r WHERE p.key = :projectKey")
+    @Query("SELECT i FROM Issue i JOIN FETCH i.project p LEFT JOIN FETCH i.assignee a LEFT JOIN FETCH i.reporter r WHERE p.key = :projectKey AND i.deletedAt IS NULL")
     List<Issue> findAllByProjectKeyWithDetails(@Param("projectKey") String projectKey);
 
-    @Query("SELECT i FROM Issue i JOIN FETCH i.project p LEFT JOIN FETCH i.assignee LEFT JOIN FETCH i.reporter WHERE i.id = :id")
+    @Query("SELECT i FROM Issue i JOIN FETCH i.project p LEFT JOIN FETCH i.assignee LEFT JOIN FETCH i.reporter WHERE i.id = :id AND i.deletedAt IS NULL")
     Optional<Issue> findByIdWithDetails(@Param("id") UUID id);
 
-    @Query("SELECT COUNT(pm) > 0 FROM Issue i JOIN i.project p JOIN ProjectMember pm ON pm.project = p WHERE i.id = :issueId AND pm.user.id = :userId")
+    @Query("SELECT COUNT(pm) > 0 FROM Issue i JOIN i.project p JOIN ProjectMember pm ON pm.project = p WHERE i.id = :issueId AND i.deletedAt IS NULL AND pm.user.id = :userId")
     boolean isUserMemberOfIssueProject(@Param("issueId") UUID issueId, @Param("userId") UUID userId);
 
     @Query("SELECT i FROM Issue i JOIN FETCH i.project p LEFT JOIN FETCH i.assignee LEFT JOIN FETCH i.reporter " +
@@ -38,10 +38,10 @@ public interface IssueRepository extends JpaRepository<Issue, UUID> {
             Pageable pageable
     );
 
-    List<Issue> findByProjectKeyAndSprintIsNull(String projectKey);
+    List<Issue> findByProjectKeyAndSprintIsNullAndDeletedAtIsNull(String projectKey);
 
-    List<Issue> findBySprintId(UUID sprintId);
+    List<Issue> findBySprintIdAndDeletedAtIsNull(UUID sprintId);
 
     // Find issues in a sprint where status is NOT equal to "DONE"
-    List<Issue> findBySprintIdAndStatusNot(UUID sprintId, String status);
+    List<Issue> findBySprintIdAndStatusNotAndDeletedAtIsNull(UUID sprintId, String status);
 }

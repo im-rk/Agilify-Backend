@@ -31,3 +31,8 @@ build/
 
 ### VS Code ###
 .vscode/
+
+
+### Local docs ###
+docs/adv/
+docs/general/
