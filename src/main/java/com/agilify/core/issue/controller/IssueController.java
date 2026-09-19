@@ -80,7 +80,7 @@ public class IssueController {
             @CurrentUser UUID userId
     )
     {
-        IssueResponse response = issueService.updateIssueStatus(key, id, request);
+        IssueResponse response = issueService.updateIssueStatus(key, id, request, userId);
         return ResponseEntity.ok(response);
     }
 

@@ -24,6 +24,7 @@ public class BoardService {
     private final SprintRepository sprintRepository;
     private final ProjectRepository projectRepository;
     private final BoardMapper boardMapper;
+    private final com.agilify.core.issue.service.WorkflowGuardService workflowGuard;
 
     @Transactional
     public void assignIssueToSprint(String projectKey, UUID issueId, AssignIssueSprintRequest request)
@@ -111,7 +112,7 @@ public class BoardService {
     }
 
     @Transactional
-    public IssueResponse updateIssueBoardPosition(String projectKey, UUID issueId, UpdateIssueBoardPositionRequest request) {
+    public IssueResponse updateIssueBoardPosition(String projectKey, UUID issueId, UpdateIssueBoardPositionRequest request, UUID userId) {
         String normalizedKey = projectKey.trim().toUpperCase();
 
         projectRepository.findByKey(normalizedKey)
@@ -135,7 +136,9 @@ public class BoardService {
         }
 
         if (request.status() != null && !request.status().isBlank()) {
-            issue.setStatus(request.status().trim().toUpperCase());
+            String newStatus = request.status().trim().toUpperCase();
+            workflowGuard.validate(issue, newStatus, userId);
+            issue.setStatus(newStatus);
         }
 
         Issue savedIssue = issueRepository.save(issue);

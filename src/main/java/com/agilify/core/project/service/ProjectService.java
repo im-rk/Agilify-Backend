@@ -31,6 +31,7 @@ public class ProjectService {
     private final ProjectMemberRepository projectMemberRepository;
     private final ProjectMapper projectMapper;
     private final UserRepository userRepository;
+    private final WorkflowSeeder workflowSeeder;
 
     @Transactional
     public ProjectResponse createProject(CreateProjectRequest request,UUID creatorId)
@@ -63,6 +64,7 @@ public class ProjectService {
                 .build();
 
         projectMemberRepository.save(adminMember);
+        workflowSeeder.seedDefaults(savedProject);
 
         return projectMapper.toResponse(savedProject);
     }
