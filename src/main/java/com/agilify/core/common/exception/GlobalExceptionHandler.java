@@ -57,6 +57,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
     }
 
+    @ExceptionHandler(WorkflowTransitionException.class)
+    public ResponseEntity<ErrorResponse> handleWorkflowViolation(WorkflowTransitionException ex, HttpServletRequest request)
+    {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(new ErrorResponse(
+                HttpStatus.UNPROCESSABLE_ENTITY.value(), "WORKFLOW_VIOLATION", ex.getMessage(), request.getRequestURI(), Instant.now(), null));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleBadRequest(IllegalArgumentException ex, HttpServletRequest request)
     {

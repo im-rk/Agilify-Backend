@@ -27,6 +27,7 @@ public class IssueService {
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
     private final IssueMapper issueMapper;
+    private final WorkflowGuardService workflowGuard;
 
     @Transactional
     public IssueResponse createIssue(String key, CreateIssueRequest request, UUID reportedId)
@@ -93,7 +94,7 @@ public class IssueService {
     }
 
     @Transactional
-    public IssueResponse updateIssueStatus(String key, UUID id, UpdateIssueStatusRequest request)
+    public IssueResponse updateIssueStatus(String key, UUID id, UpdateIssueStatusRequest request, UUID userId)
     {
         String normalizedkey=key.trim().toUpperCase();
 
@@ -105,11 +106,16 @@ public class IssueService {
             throw new NotFoundException("Issue"+id+"does not belong to this project");
         }
         String newStatus=request.status().trim().toUpperCase();
+        workflowGuard.validate(issue, newStatus, userId);
         issue.setStatus(newStatus);
 
         if("DONE".equals(newStatus))
         {
             issue.setCompletedAt(java.time.Instant.now());
+        }
+        else
+        {
+            issue.setCompletedAt(null);
         }
         Issue updatedIssue=issueRepository.save(issue);
         return issueMapper.toResponse(updatedIssue);
