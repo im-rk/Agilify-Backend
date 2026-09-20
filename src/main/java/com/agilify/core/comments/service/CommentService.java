@@ -61,7 +61,7 @@ public class CommentService {
             throw new IllegalArgumentException("Issue not found with ID: " + issueId);
         }
 
-        List<Comment> comments = commentRepository.findByIssueIdAndDeletedAtIsNullOrderByCreatedAtAsc(issueId);
+        List<Comment> comments = commentRepository.findByIssueIdOrderByCreatedAtAsc(issueId);
 
         return comments.stream()
                 .map(commentMapper::toResponse)
@@ -95,6 +95,7 @@ public class CommentService {
             return; // Idempotent success or throw error
         }
 
+        comment.setContent("[Comment deleted]");
         comment.setDeletedAt(java.time.Instant.now());
         commentRepository.save(comment);
     }
