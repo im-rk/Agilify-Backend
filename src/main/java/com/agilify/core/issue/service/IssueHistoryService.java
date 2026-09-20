@@ -23,6 +23,7 @@ public class IssueHistoryService {
     private final IssueHistoryRepository historyRepository;
     private final IssueRepository issueRepository;
     private final UserRepository userRepository;
+    private final com.agilify.core.watchers.service.WatcherService watcherService;
 
     /** Joins the caller's transaction so the change and its audit row commit (or roll back) together. */
     @Transactional
@@ -38,6 +39,8 @@ public class IssueHistoryService {
                 .newValue(newValue == null ? null : newValue.toString())
                 .changeReason(reason)
                 .build());
+        watcherService.notifyWatchers(issue, changedBy, fieldName,
+                oldValue == null ? null : oldValue.toString(), newValue == null ? null : newValue.toString());
     }
 
     @Transactional(readOnly = true)
