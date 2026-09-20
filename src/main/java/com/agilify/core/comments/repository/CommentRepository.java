@@ -10,6 +10,6 @@ import java.util.UUID;
 @Repository
 public interface CommentRepository extends JpaRepository<Comment, UUID> {
 
-    //fetch all active (not deleted) comments for a given issue, ordered by creation date ascending
-    List<Comment> findByIssueIdAndDeletedAtIsNullOrderByCreatedAtAsc(UUID issueId);
+    // includes soft-deleted comments (content tombstoned) so reply threads keep their parent
+    List<Comment> findByIssueIdOrderByCreatedAtAsc(UUID issueId);
 }

@@ -109,8 +109,8 @@ public class ProjectService {
             throw new ConflictException("User is already a member of the project.");
         }
 
-        // Get a proxy reference to the User without running a DB query
-        User userToAdd = userRepository.getReferenceById(request.getUserId());
+        User userToAdd = userRepository.findById(request.getUserId())
+                .orElseThrow(() -> new NotFoundException("User not found with ID: " + request.getUserId()));
 
         // Create and save the new ProjectMember
         ProjectMember newMember = ProjectMember.builder()

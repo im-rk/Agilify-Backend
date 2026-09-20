@@ -29,13 +29,16 @@ public class IssueService {
     private final IssueMapper issueMapper;
     private final WorkflowGuardService workflowGuard;
     private final IssueHistoryService historyService;
+    private final com.agilify.core.project.repository.ProjectMemberRepository memberRepository;
+    private final com.agilify.core.watchers.service.WatcherService watcherService;
 
     @Transactional
     public IssueResponse createIssue(String key, CreateIssueRequest request, UUID reportedId)
     {
         String normalizedKey=key.trim().toUpperCase();
 
-        Project project=projectRepository.findByKey(normalizedKey)
+        // row lock serialises concurrent creates so MAX(issue_number)+1 cannot collide
+        Project project=projectRepository.findByKeyForUpdate(normalizedKey)
                 .orElseThrow(()->new IllegalArgumentException("Project with key "+normalizedKey+" not found"));
 
         User reporter=userRepository.findById(reportedId)
@@ -46,6 +49,7 @@ public class IssueService {
         {
             assignee=userRepository.findById(request.assigneeId())
                     .orElseThrow(()->new IllegalArgumentException("Assignee with id "+request.assigneeId()+" not found"));
+            requireProjectMember(project.getId(), assignee.getId());
         }
         Integer maxNum=issueRepository.findMaxIssueNumberByProjectId(project.getId()).orElse(0);
         int nextIssueNumber=maxNum+1;
@@ -56,13 +60,28 @@ public class IssueService {
                 .title(request.title())
                 .description(request.description())
                 .priority(request.priority())
+                .storyPoints(request.storyPoints())
+                .dueDate(request.dueDate())
                 .reporter(reporter)
                 .assignee(assignee)
                 .status("BACKLOG")
                 .build();
 
         Issue savedIssue=issueRepository.save(issue);
+        watcherService.addWatcher(savedIssue, reporter.getId());
+        if(assignee!=null)
+        {
+            watcherService.addWatcher(savedIssue, assignee.getId());
+        }
         return issueMapper.toResponse(savedIssue);
+    }
+
+    private void requireProjectMember(UUID projectId, UUID userId)
+    {
+        if(!memberRepository.existsByProjectIdAndUserId(projectId, userId))
+        {
+            throw new IllegalArgumentException("Assignee must be a member of the project");
+        }
     }
 
 
@@ -138,6 +157,8 @@ public class IssueService {
         if (request.assigneeId() != null) {
             assignee = userRepository.findById(request.assigneeId())
                     .orElseThrow(() -> new NotFoundException("Assignee not found with ID: " + request.assigneeId()));
+            requireProjectMember(issue.getProject().getId(), assignee.getId());
+            watcherService.addWatcher(issue, assignee.getId());
         }
 
         historyService.recordChange(issue, userId, "assignee_id",
@@ -164,6 +185,10 @@ public class IssueService {
         historyService.recordChange(issue, userId, "description", issue.getDescription(), request.description(), null);
         historyService.recordChange(issue, userId, "priority", issue.getPriority(), request.priority(), null);
         historyService.recordChange(issue, userId, "issue_type", issue.getIssueType(), request.type(), null);
+        historyService.recordChange(issue, userId, "story_points", issue.getStoryPoints(), request.storyPoints(), null);
+        historyService.recordChange(issue, userId, "due_date", issue.getDueDate(), request.dueDate(), null);
+        issue.setStoryPoints(request.storyPoints());
+        issue.setDueDate(request.dueDate());
         issue.setTitle(request.title());
         issue.setDescription(request.description());
         issue.setPriority(request.priority());
