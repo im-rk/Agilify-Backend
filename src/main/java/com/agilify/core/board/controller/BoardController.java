@@ -1,7 +1,9 @@
 package com.agilify.core.board.controller;
 
 import com.agilify.core.board.dto.AssignIssueSprintRequest;
+import com.agilify.core.board.dto.BoardResponse;
 import com.agilify.core.board.dto.IssueResponse;
+import com.agilify.core.board.dto.UpdateIssueBoardPositionRequest;
 import com.agilify.core.board.service.BoardService;
 import com.agilify.core.common.security.CurrentUser;
 import io.swagger.v3.oas.annotations.Operation;
@@ -36,6 +38,26 @@ public class BoardController {
     {
         boardService.assignIssueToSprint(key,issueId,request,userId);
         return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Move an issue on the board", description = "Sets position and optionally status/sprint; status goes through the workflow guard. Requires DEVELOPER role.")
+    @ApiResponse(responseCode = "200", description = "Issue moved")
+    @PreAuthorize("@projectSecurity.hasRole(#key, #userId.toString(), 'DEVELOPER')")
+    @PatchMapping("/{key}/issues/{issueId}/position")
+    public ResponseEntity<IssueResponse> updateIssuePosition(
+            @PathVariable String key,
+            @PathVariable UUID issueId,
+            @Valid @RequestBody UpdateIssueBoardPositionRequest request,
+            @CurrentUser UUID userId) {
+        return ResponseEntity.ok(boardService.updateIssueBoardPosition(key, issueId, request, userId));
+    }
+
+    @Operation(summary = "Get active sprint board", description = "The ACTIVE sprint with its issues. 404 if none is active. Requires VIEWER role.")
+    @ApiResponse(responseCode = "200", description = "Active board retrieved")
+    @PreAuthorize("@projectSecurity.hasRole(#key, #userId.toString(), 'VIEWER')")
+    @GetMapping("/{key}/board")
+    public ResponseEntity<BoardResponse> getActiveBoard(@PathVariable String key, @CurrentUser UUID userId) {
+        return ResponseEntity.ok(boardService.getActiveBoard(key));
     }
 
     @Operation(summary = "Get project backlog", description = "Retrieves all unassigned/backlog issues for the project. Requires VIEWER role.")

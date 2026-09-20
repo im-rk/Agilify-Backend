@@ -38,9 +38,9 @@ public interface IssueRepository extends JpaRepository<Issue, UUID> {
             Pageable pageable
     );
 
-    List<Issue> findByProjectKeyAndSprintIsNullAndDeletedAtIsNull(String projectKey);
+    List<Issue> findByProjectKeyAndSprintIsNullAndDeletedAtIsNullOrderByBoardPositionAscCreatedAtAsc(String projectKey);
 
-    List<Issue> findBySprintIdAndDeletedAtIsNull(UUID sprintId);
+    List<Issue> findBySprintIdAndDeletedAtIsNullOrderByBoardPositionAscCreatedAtAsc(UUID sprintId);
 
     // Find issues in a sprint where status is NOT equal to "DONE"
     List<Issue> findBySprintIdAndStatusNotAndDeletedAtIsNull(UUID sprintId, String status);

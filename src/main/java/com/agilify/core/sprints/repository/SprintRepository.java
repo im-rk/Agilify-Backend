@@ -16,5 +16,7 @@ public interface SprintRepository extends JpaRepository<Sprint, UUID> {
     @Query("SELECT s FROM Sprint s JOIN FETCH s.createdBy WHERE s.id = :sprintId")
     Optional<Sprint> findByIdWithCreator(@Param("sprintId") UUID sprintId);
 
+    Optional<Sprint> findFirstByProjectKeyAndStatus(String projectKey, com.agilify.core.domain.enums.SprintStatus status);
+
     boolean existsByProjectKeyAndStatus(String projectKey, com.agilify.core.domain.enums.SprintStatus status);
 }

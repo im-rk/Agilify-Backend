@@ -16,6 +16,8 @@ public record UpdateIssueRequest(
         IssueType type,
 
         @NotNull(message = "Priority is required")
-        IssuePriority priority
+        IssuePriority priority,
+        @jakarta.validation.constraints.Min(0) Integer storyPoints,
+        java.time.LocalDate dueDate
 ) {
 }

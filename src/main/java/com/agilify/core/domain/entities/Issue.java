@@ -89,6 +89,9 @@ public class Issue extends BaseEntity {
     @JoinColumn(name = "sprint_id")
     private Sprint sprint;
 
+    @Column(name = "board_position")
+    private Integer boardPosition;
+
     @Column(name = "due_date")
     private LocalDate dueDate;
 

@@ -12,6 +12,7 @@ public interface IssueMapper {
 
     @Mapping(target = "issueKey", expression = "java(issue.getProject().getKey() + \"-\" + issue.getIssueNumber())")
     @Mapping(source = "issueType", target = "type")
+    @Mapping(source = "sprint.id", target = "sprintId")
     @Mapping(source = "assignee.id", target = "assigneeId")
     @Mapping(source = "assignee.fullName", target = "assigneeName")
     @Mapping(source = "reporter.id", target = "reporterId")

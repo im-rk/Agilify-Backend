@@ -1,5 +1,6 @@
 package com.agilify.core.board.dto;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 public record IssueResponse(
@@ -9,6 +10,10 @@ public record IssueResponse(
         String description,
         String status,
         String priority,
-        String issueType
+        String issueType,
+        Integer storyPoints,
+        LocalDate dueDate,
+        UUID sprintId,
+        Integer boardPosition
 ) {
 }
