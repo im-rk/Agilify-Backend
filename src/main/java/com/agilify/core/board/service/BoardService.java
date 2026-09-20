@@ -1,6 +1,8 @@
 package com.agilify.core.board.service;
 
 import com.agilify.core.board.dto.AssignIssueSprintRequest;
+import com.agilify.core.board.dto.BoardResponse;
+import com.agilify.core.domain.enums.SprintStatus;
 import com.agilify.core.board.dto.IssueResponse;
 import com.agilify.core.board.dto.UpdateIssueBoardPositionRequest;
 import com.agilify.core.board.mapper.BoardMapper;
@@ -24,6 +26,7 @@ public class BoardService {
     private final SprintRepository sprintRepository;
     private final ProjectRepository projectRepository;
     private final BoardMapper boardMapper;
+    private final com.agilify.core.sprints.mapper.SprintMapper sprintMapper;
     private final com.agilify.core.issue.service.WorkflowGuardService workflowGuard;
     private final com.agilify.core.issue.service.IssueHistoryService historyService;
 
@@ -72,19 +75,10 @@ public class BoardService {
         projectRepository.findByKey(projectKey.toUpperCase())
                 .orElseThrow(() -> new RuntimeException("Project not found: " + projectKey));
 
-        List<Issue> backlogIssues = issueRepository.findByProjectKeyAndSprintIsNullAndDeletedAtIsNull(projectKey.toUpperCase());
+        List<Issue> backlogIssues = issueRepository.findByProjectKeyAndSprintIsNullAndDeletedAtIsNullOrderByBoardPositionAscCreatedAtAsc(projectKey.toUpperCase());
 
-        return backlogIssues.stream()
-                .map(issue -> new IssueResponse(
-                        issue.getId(),
-                        projectKey.toUpperCase() + "-" + issue.getIssueNumber(),
-                        issue.getTitle(),
-                        issue.getDescription(),
-                        issue.getStatus() != null ? issue.getStatus() : null,
-                        issue.getPriority() != null ? issue.getPriority().name() : null, // IssuePriority is an Enum, use .name()
-                        issue.getIssueType() != null ? issue.getIssueType().name() : null // IssueType is an Enum, use .name()
-                ))
-                .toList();
+        String normalizedKey = projectKey.trim().toUpperCase();
+        return backlogIssues.stream().map(i -> boardMapper.toIssueResponse(i, normalizedKey)).toList();
     }
 
     @Transactional(readOnly = true)
@@ -101,19 +95,9 @@ public class BoardService {
             throw new IllegalArgumentException("Sprint does not belong to project: " + normalizedKey);
         }
 
-        List<Issue> sprintIssues = issueRepository.findBySprintIdAndDeletedAtIsNull(sprintId);
+        List<Issue> sprintIssues = issueRepository.findBySprintIdAndDeletedAtIsNullOrderByBoardPositionAscCreatedAtAsc(sprintId);
 
-        return sprintIssues.stream()
-                .map(issue -> new IssueResponse(
-                        issue.getId(),
-                        normalizedKey + "-" + issue.getIssueNumber(),
-                        issue.getTitle(),
-                        issue.getDescription(),
-                        issue.getStatus(),
-                        issue.getPriority() != null ? issue.getPriority().name() : null,
-                        issue.getIssueType() != null ? issue.getIssueType().name() : null
-                ))
-                .toList();
+        return sprintIssues.stream().map(i -> boardMapper.toIssueResponse(i, normalizedKey)).toList();
     }
 
     @Transactional
@@ -124,6 +108,7 @@ public class BoardService {
                 .orElseThrow(() -> new NotFoundException("Project not found with key: " + normalizedKey));
 
         Issue issue = issueRepository.findById(issueId)
+                .filter(i -> i.getDeletedAt() == null)
                 .orElseThrow(() -> new NotFoundException("Issue not found with ID: " + issueId));
 
         if (!issue.getProject().getKey().equalsIgnoreCase(normalizedKey)) {
@@ -149,8 +134,28 @@ public class BoardService {
             issue.setStatus(newStatus);
         }
 
+        // ponytail: stores the requested slot as-is (no renumbering of neighbours); reindex here if gaps/duplicates matter
+        if (request.position() != null) {
+            issue.setBoardPosition(request.position());
+        }
+
         Issue savedIssue = issueRepository.save(issue);
 
         return boardMapper.toIssueResponse(savedIssue, normalizedKey);
+    }
+
+    @Transactional(readOnly = true)
+    public BoardResponse getActiveBoard(String projectKey) {
+        String normalizedKey = projectKey.trim().toUpperCase();
+
+        Sprint sprint = sprintRepository.findFirstByProjectKeyAndStatus(normalizedKey, SprintStatus.ACTIVE)
+                .orElseThrow(() -> new NotFoundException("No active sprint in project " + normalizedKey));
+
+        List<IssueResponse> issues = issueRepository
+                .findBySprintIdAndDeletedAtIsNullOrderByBoardPositionAscCreatedAtAsc(sprint.getId()).stream()
+                .map(i -> boardMapper.toIssueResponse(i, normalizedKey))
+                .toList();
+
+        return new BoardResponse(sprintMapper.toResponse(sprint), issues);
     }
 }

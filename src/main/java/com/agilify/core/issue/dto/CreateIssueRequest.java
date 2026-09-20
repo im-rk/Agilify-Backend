@@ -17,6 +17,8 @@ public record CreateIssueRequest(
 
         @NotNull(message = "Priority is required")
         IssuePriority priority,
-        UUID assigneeId
+        UUID assigneeId,
+        @jakarta.validation.constraints.Min(0) Integer storyPoints,
+        java.time.LocalDate dueDate
 ) {
 }

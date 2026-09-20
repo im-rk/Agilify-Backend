@@ -18,6 +18,10 @@ public record IssueResponse(
         String assigneeName,
         UUID reporterId,
         String reporterName,
+        Integer storyPoints,
+        java.time.LocalDate dueDate,
+        UUID sprintId,
+        Integer boardPosition,
         Instant createdAt,
         Instant updatedAt
 ) {
