@@ -25,7 +25,6 @@ public class IssueHistoryService {
     private final UserRepository userRepository;
     private final com.agilify.core.watchers.service.WatcherService watcherService;
 
-    /** Joins the caller's transaction so the change and its audit row commit (or roll back) together. */
     @Transactional
     public void recordChange(Issue issue, UUID changedBy, String fieldName, Object oldValue, Object newValue, String reason) {
         if (Objects.equals(oldValue, newValue)) {
