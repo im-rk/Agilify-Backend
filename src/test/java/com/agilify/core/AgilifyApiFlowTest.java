@@ -143,7 +143,9 @@ class AgilifyApiFlowTest {
                 "{\"name\":\"S1\",\"startDate\":\"" + LocalDate.now() + "\",\"endDate\":\"" + LocalDate.now().plusDays(14) + "\"}", 201);
         String sprintId = JsonPath.read(sprint, "$.id");
         body(get("/api/v1/projects/" + key + "/board"), dev, null, 404); // none active yet
-        assertEquals(1, ((java.util.List<?>) JsonPath.read(body(get("/api/v1/projects/" + key + "/backlog"), dev, null, 200), "$")).size());
+        String backlog = body(get("/api/v1/projects/" + key + "/backlog"), dev, null, 200);
+        assertEquals(1, ((java.util.List<?>) JsonPath.read(backlog, "$")).size());
+        assertEquals(dev.toString(), JsonPath.read(backlog, "$[0].assigneeId"));
         body(patch("/api/v1/projects/" + key + "/issues/" + issueId + "/sprint"), dev, "{\"sprintId\":\"" + sprintId + "\"}", 200);
         assertEquals(0, ((java.util.List<?>) JsonPath.read(body(get("/api/v1/projects/" + key + "/backlog"), dev, null, 200), "$")).size());
         body(patch("/api/v1/projects/" + key + "/sprints/" + sprintId + "/status"), dev, "{\"status\":\"CLOSED\"}", 409);
@@ -151,6 +153,8 @@ class AgilifyApiFlowTest {
         String board = body(get("/api/v1/projects/" + key + "/board"), dev, null, 200);
         assertEquals(sprintId, JsonPath.read(board, "$.sprint.id"));
         assertEquals(1, ((java.util.List<?>) JsonPath.read(board, "$.issues")).size());
+        assertEquals(dev.toString(), JsonPath.read(board, "$.issues[0].assigneeId"));
+        assertEquals("User " + dev.toString().substring(0, 4), JsonPath.read(board, "$.issues[0].assigneeName"));
         String moved = body(patch("/api/v1/projects/" + key + "/issues/" + issueId + "/position"), dev, "{\"position\":3,\"status\":\"IN_REVIEW\"}", 200);
         assertEquals(3, (int) JsonPath.read(moved, "$.boardPosition"));
         assertEquals("IN_REVIEW", JsonPath.read(moved, "$.status"));

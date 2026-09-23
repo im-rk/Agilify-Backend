@@ -13,5 +13,7 @@ public interface BoardMapper {
     @Mapping(target = "priority", expression = "java(issue.getPriority() != null ? issue.getPriority().name() : null)")
     @Mapping(target = "issueType", expression = "java(issue.getIssueType() != null ? issue.getIssueType().name() : null)")
     @Mapping(target = "sprintId", source = "issue.sprint.id")
+    @Mapping(target = "assigneeId", source = "issue.assignee.id")
+    @Mapping(target = "assigneeName", source = "issue.assignee.fullName")
     IssueResponse toIssueResponse(Issue issue, String projectKey);
 }

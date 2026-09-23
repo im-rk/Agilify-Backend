@@ -14,6 +14,8 @@ public record IssueResponse(
         Integer storyPoints,
         LocalDate dueDate,
         UUID sprintId,
-        Integer boardPosition
+        Integer boardPosition,
+        UUID assigneeId,
+        String assigneeName
 ) {
 }

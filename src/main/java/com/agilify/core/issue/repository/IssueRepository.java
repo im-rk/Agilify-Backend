@@ -3,6 +3,7 @@ package com.agilify.core.issue.repository;
 import com.agilify.core.domain.entities.Issue;
 import com.agilify.core.domain.enums.IssuePriority;
 import org.springframework.data.domain.Page;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.domain.Pageable;
@@ -38,8 +39,10 @@ public interface IssueRepository extends JpaRepository<Issue, UUID> {
             Pageable pageable
     );
 
+    @EntityGraph(attributePaths = {"assignee"})
     List<Issue> findByProjectKeyAndSprintIsNullAndDeletedAtIsNullOrderByBoardPositionAscCreatedAtAsc(String projectKey);
 
+    @EntityGraph(attributePaths = {"assignee"})
     List<Issue> findBySprintIdAndDeletedAtIsNullOrderByBoardPositionAscCreatedAtAsc(UUID sprintId);
 
     // Find issues in a sprint where status is NOT equal to "DONE"
