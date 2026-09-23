@@ -42,6 +42,11 @@ public class DocService {
     }
 
     @Transactional(readOnly = true)
+    public DocResponse getById(String key, UUID docId) {
+        return toResponse(findDoc(key, docId));
+    }
+
+    @Transactional(readOnly = true)
     public List<DocResponse> list(String key) {
         findProject(key);
         return docRepository.findByProjectKeyAndDeletedAtIsNullOrderByUpdatedAtDesc(normalize(key))

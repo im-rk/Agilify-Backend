@@ -104,6 +104,21 @@ class AgilifyApiFlowTest {
         assertTrue(jdbc.queryForObject("select count(*) from notifications where recipient_id=?", Integer.class, admin) >= 2);
         assertEquals(0, jdbc.queryForObject("select count(*) from notifications where recipient_id=?", Integer.class, dev));
 
+        // notifications read API: admin can list/read their own, but not another user's
+        String notifications = body(get("/api/v1/notifications"), admin, null, 200);
+        int notificationCount = ((java.util.List<?>) JsonPath.read(notifications, "$")).size();
+        assertTrue(notificationCount >= 2);
+        assertEquals(false, JsonPath.read(notifications, "$[0].isRead"));
+        String firstNotificationId = JsonPath.read(notifications, "$[0].id");
+        body(post("/api/v1/notifications/" + firstNotificationId + "/read"), outsider, null, 404); // not the recipient
+        body(post("/api/v1/notifications/" + firstNotificationId + "/read"), admin, null, 200);
+        String unread = body(get("/api/v1/notifications?unreadOnly=true"), admin, null, 200);
+        assertEquals(notificationCount - 1, ((java.util.List<?>) JsonPath.read(unread, "$")).size());
+        body(post("/api/v1/notifications/read-all"), admin, null, 200);
+        unread = body(get("/api/v1/notifications?unreadOnly=true"), admin, null, 200);
+        assertEquals(0, ((java.util.List<?>) JsonPath.read(unread, "$")).size());
+        assertEquals(0, ((java.util.List<?>) JsonPath.read(body(get("/api/v1/notifications?unreadOnly=true"), dev, null, 200), "$")).size());
+
         // edit records history for changed fields only
         body(put(base), dev, "{\"title\":\"Login bug\",\"type\":\"BUG\",\"priority\":\"P3\",\"storyPoints\":5}", 200);
         history = body(get(base + "/history"), admin, null, 200);
