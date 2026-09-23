@@ -71,6 +71,18 @@ public class ProjectController {
         return ResponseEntity.ok(response);
     }
 
+    @Operation(summary = "List project members", description = "Requires project membership.")
+    @ApiResponse(responseCode = "200", description = "Members retrieved successfully")
+    @PreAuthorize("@projectSecurity.isMember(#key, #userId.toString())")
+    @GetMapping("/{key}/members")
+    public ResponseEntity<List<ProjectMemberResponse>> getMembers(
+            @PathVariable String key,
+            @CurrentUser UUID userId
+    )
+    {
+        return ResponseEntity.ok(projectService.getMembers(key));
+    }
+
     @Operation(summary = "Add member to project", description = "Adds a new member with a specified role to the project. Requires ADMIN role.")
     @ApiResponse(responseCode = "201", description = "Member added successfully")
     @PreAuthorize("@projectSecurity.hasRole(#key, #userId.toString(), 'ADMIN')")

@@ -97,6 +97,18 @@ public class ProjectService {
         return projectMapper.toResponse(updatedProject);
     }
 
+    @Transactional(readOnly = true)
+    public List<ProjectMemberResponse> getMembers(String key) {
+        String normalizedKey = key.trim().toUpperCase();
+        Project project = projectRepository.findByKey(normalizedKey)
+                .orElseThrow(() -> new NotFoundException("Project Not found with key: " + normalizedKey));
+
+        return projectMemberRepository.findAllByProjectId(project.getId()).stream()
+                .map(m -> new ProjectMemberResponse(m.getUser().getId(), m.getUser().getFullName(),
+                        m.getUser().getEmail(), m.getRole().name()))
+                .toList();
+    }
+
     @Transactional
     public void addMember(String key, AddMemberRequest request)
     {
