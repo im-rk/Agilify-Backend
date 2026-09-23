@@ -45,6 +45,13 @@ public class DocController {
         return ResponseEntity.ok(docService.list(key));
     }
 
+    @Operation(summary = "Get a doc by ID", description = "Requires project membership.")
+    @PreAuthorize("@projectSecurity.isMember(#key, #userId.toString())")
+    @GetMapping("/{docId}")
+    public ResponseEntity<DocResponse> getById(@PathVariable String key, @PathVariable UUID docId, @CurrentUser UUID userId) {
+        return ResponseEntity.ok(docService.getById(key, docId));
+    }
+
     @Operation(summary = "Rename a doc", description = "Requires DEVELOPER role.")
     @PreAuthorize("@projectSecurity.hasRole(#key, #userId.toString(), 'DEVELOPER')")
     @PatchMapping("/{docId}/title")

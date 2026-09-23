@@ -20,8 +20,10 @@ import java.util.UUID;
 /**
  * Browsers can't set an Authorization header on a WebSocket handshake, so the JWT
  * comes in as a query param instead: /ws/docs/{docId}?token=...
- * Rejects the handshake unless the token is valid AND the caller is a member of
- * the doc's project — otherwise anyone with any valid token could open anyone's doc.
+ * Rejects the handshake unless the token is valid AND the caller has at least DEVELOPER
+ * access to the doc's project — otherwise anyone with any valid token could open anyone's
+ * doc, and a read-only VIEWER could push edits despite being unable to create/delete docs
+ * through the REST API.
  */
 @Component
 @RequiredArgsConstructor
@@ -50,7 +52,7 @@ public class DocWebSocketAuthInterceptor implements HandshakeInterceptor {
             UUID userId = UUID.fromString(jwt.getSubject());
 
             String projectKey = docService.getProjectKeyForDoc(docId);
-            if (projectKey == null || !projectSecurity.isMember(projectKey, userId.toString())) {
+            if (projectKey == null || !projectSecurity.hasRole(projectKey, userId.toString(), "DEVELOPER")) {
                 response.setStatusCode(HttpStatus.FORBIDDEN);
                 return false;
             }
