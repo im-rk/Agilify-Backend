@@ -37,6 +37,9 @@ public class Notification {
     @Column(name = "referenced_type", length = 50)
     private String referencedType;
 
+    @Column(name = "project_key", length = 10)
+    private String projectKey;
+
     @Column(name = "referenced_id")
     private UUID referencedId;
 

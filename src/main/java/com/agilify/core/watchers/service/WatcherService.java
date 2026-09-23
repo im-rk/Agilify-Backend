@@ -76,7 +76,7 @@ public class WatcherService {
                 .map(w -> w.getUser().getId())
                 .filter(recipient -> !recipient.equals(changedBy))
                 .forEach(recipient -> notificationService.create(
-                        recipient, type, issueKey + " updated", body, "ISSUE", issue.getId()));
+                        recipient, type, issueKey + " updated", body, "ISSUE", issue.getId(), issue.getProject().getKey()));
     }
 
     private Issue findIssue(String key, UUID issueId) {

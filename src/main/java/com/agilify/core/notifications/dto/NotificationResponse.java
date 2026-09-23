@@ -12,6 +12,7 @@ public record NotificationResponse(
         String body,
         String referencedType,
         UUID referencedId,
+        String projectKey,
         Boolean isRead,
         Instant createdAt
 ) {

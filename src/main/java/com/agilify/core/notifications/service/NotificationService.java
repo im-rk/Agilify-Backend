@@ -22,7 +22,7 @@ public class NotificationService {
 
     @Transactional
     public void create(UUID recipientId, NotificationType type, String title, String body,
-                       String referencedType, UUID referencedId) {
+                       String referencedType, UUID referencedId, String projectKey) {
         notificationRepository.save(Notification.builder()
                 .recipient(userRepository.getReferenceById(recipientId))
                 .type(type)
@@ -30,6 +30,7 @@ public class NotificationService {
                 .body(body)
                 .referencedType(referencedType)
                 .referencedId(referencedId)
+                .projectKey(projectKey)
                 .build());
     }
 
@@ -56,6 +57,6 @@ public class NotificationService {
 
     private NotificationResponse toResponse(Notification n) {
         return new NotificationResponse(n.getId(), n.getType(), n.getTitle(), n.getBody(),
-                n.getReferencedType(), n.getReferencedId(), n.getIsRead(), n.getCreatedAt());
+                n.getReferencedType(), n.getReferencedId(), n.getProjectKey(), n.getIsRead(), n.getCreatedAt());
     }
 }
