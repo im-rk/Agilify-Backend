@@ -26,7 +26,9 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:24.0.1
     container_name: bugtracker-keycloak
-    command: start-dev
+    # --import-realm creates the 'agilify' realm, the agilify-app client and users alice/bob/carol
+    # (password Passw0rd!) on first start. If the realm already exists it is left untouched.
+    command: start-dev --import-realm
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
@@ -34,6 +36,7 @@ services:
       - "8180:8080"
     volumes:
       - keycloak_data:/opt/keycloak/data
+      - ./keycloak/agilify-realm.json:/opt/keycloak/data/import/agilify-realm.json:ro
     restart: unless-stopped
 
 volumes:
