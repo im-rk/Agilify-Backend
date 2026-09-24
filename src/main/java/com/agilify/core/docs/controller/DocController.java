@@ -69,8 +69,8 @@ public class DocController {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "Compact the update log", description = "Client sends its fully-merged Yjs state to collapse doc_snapshots to one row. Requires project membership.")
-    @PreAuthorize("@projectSecurity.isMember(#key, #userId.toString())")
+    @Operation(summary = "Compact the update log", description = "Client sends its fully-merged Yjs state to collapse doc_snapshots to one row. Requires DEVELOPER role (same as editing — a read-only user sending an empty state would wipe the doc).")
+    @PreAuthorize("@projectSecurity.hasRole(#key, #userId.toString(), 'DEVELOPER')")
     @PostMapping(value = "/{docId}/compact", consumes = MediaType.APPLICATION_OCTET_STREAM_VALUE)
     public ResponseEntity<Void> compact(
             @PathVariable String key, @PathVariable UUID docId,

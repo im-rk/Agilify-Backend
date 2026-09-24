@@ -246,6 +246,12 @@ class CrdtDocsFlowTest {
         assertArrayEquals(update2, lateJoiner.poll());
         lateSession.close();
 
+        // 7a. a VIEWER must not be able to compact (an empty client state would wipe the doc)
+        mvc.perform(post("/api/v1/projects/" + key + "/docs/" + docId + "/compact").with(as(viewer))
+                        .contentType(MediaType.APPLICATION_OCTET_STREAM).content(new byte[]{0}))
+                .andExpect(status().isForbidden());
+        assertEquals(2, jdbc.queryForObject("select count(*) from doc_snapshots where doc_id = ?", Integer.class, docId));
+
         // 7. compacting collapses the log to a single row
         mvc.perform(post("/api/v1/projects/" + key + "/docs/" + docId + "/compact").with(as(admin))
                         .contentType(MediaType.APPLICATION_OCTET_STREAM).content(new byte[]{7, 7, 7}))
