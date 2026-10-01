@@ -2,7 +2,9 @@ version: '3.8'
 
 services:
   db:
-    image: postgres:15-alpine
+    # pgvector/pgvector ships the `vector` extension on top of stock postgres;
+    # plain postgres:15-alpine has no CREATE EXTENSION vector available.
+    image: pgvector/pgvector:pg15
     container_name: bugtracker-postgres
     environment:
       POSTGRES_USER: bugtracker_user
@@ -13,6 +15,16 @@ services:
     volumes:
       - bugtracker_pgdata:/var/lib/postgresql/data
     restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: bugtracker-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    # one-time setup: docker exec bugtracker-ollama ollama pull nomic-embed-text
 
   redis:
     image: redis:7-alpine
@@ -43,3 +55,4 @@ volumes:
   bugtracker_pgdata:
   bugtracker_redisdata:
   keycloak_data:
+  ollama_data:
