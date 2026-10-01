@@ -31,6 +31,7 @@ public class IssueService {
     private final IssueHistoryService historyService;
     private final com.agilify.core.project.repository.ProjectMemberRepository memberRepository;
     private final com.agilify.core.watchers.service.WatcherService watcherService;
+    private final com.agilify.core.search.IssueVectorService vectorService;
 
     @Transactional
     public IssueResponse createIssue(String key, CreateIssueRequest request, UUID reportedId)
@@ -73,6 +74,7 @@ public class IssueService {
         {
             watcherService.addWatcher(savedIssue, assignee.getId());
         }
+        vectorService.indexIssue(savedIssue.getId(), normalizedKey, savedIssue.getTitle(), savedIssue.getDescription());
         return issueMapper.toResponse(savedIssue);
     }
 
@@ -195,6 +197,7 @@ public class IssueService {
         issue.setIssueType(request.type());
 
         Issue updatedIssue = issueRepository.save(issue);
+        vectorService.indexIssue(updatedIssue.getId(), normalizedKey, updatedIssue.getTitle(), updatedIssue.getDescription());
         return issueMapper.toResponse(updatedIssue);
     }
 

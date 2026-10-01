@@ -29,6 +29,7 @@ public class IssueController {
 
     private final IssueService issueService;
     private final IssueHistoryService historyService;
+    private final com.agilify.core.search.IssueVectorService vectorService;
 
     @Operation(summary = "Get issue history", description = "Chronological audit trail of field changes. Requires project membership.")
     @ApiResponse(responseCode = "200", description = "History retrieved")
@@ -129,6 +130,20 @@ public class IssueController {
     {
         IssueResponse response = issueService.updateIssueDetails(key, id, request, userId);
         return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Check for duplicate issues", description = "Semantic similarity search over existing issue titles/descriptions in this project. Requires DEVELOPER role (same as creating an issue).")
+    @ApiResponse(responseCode = "200", description = "Possible duplicate issue IDs, most similar first")
+    @PreAuthorize("@projectSecurity.hasRole(#key, #userId.toString(), 'DEVELOPER')")
+    @PostMapping("/{key}/issues/check-duplicates")
+    public ResponseEntity<List<UUID>> checkDuplicates(
+            @PathVariable String key,
+            @jakarta.validation.Valid @RequestBody com.agilify.core.search.dto.CheckDuplicatesRequest request,
+            @CurrentUser UUID userId
+    )
+    {
+        String normalizedKey = key.trim().toUpperCase();
+        return ResponseEntity.ok(vectorService.findDuplicates(normalizedKey, request.draftText()));
     }
 
     @Operation(summary = "Delete issue", description = "Soft-deletes an issue. Requires DEVELOPER role.")
