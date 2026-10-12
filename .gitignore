@@ -36,3 +36,6 @@ build/
 ### Local docs ###
 docs/adv/
 docs/general/
+
+# Project docs (local)
+docs/
