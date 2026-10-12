@@ -583,7 +583,7 @@ No `AWS_ACCESS_KEY_ID` or secret key exists in GitHub. Instead:
 
 1. GitHub issues each workflow run a short-lived signed identity token.
 2. AWS has an **IAM OIDC identity provider** for `token.actions.githubusercontent.com`.
-3. Each role's **trust policy** accepts that token only when the claims match exactly one repository and one branch: `repo:im-rk/Agilify-Backend:ref:refs/heads/development` for the backend role and `repo:im-rk/Agilify-Frontend:ref:refs/heads/main` for the frontend role.
+3. Each role's **trust policy** accepts that token only when the claims match exactly one repository and one branch. GitHub's default subject for new repositories is the **immutable** form that embeds the numeric owner and repository IDs (for the backend role, `repo:im-rk@<owner-id>/Agilify-Backend@<repo-id>:ref:refs/heads/development`, and likewise for the frontend role on `main`). That form cannot be hijacked by renaming or transferring a repository.
 4. The roles are **least privilege**:
 
 | Role | May do | May not do |
