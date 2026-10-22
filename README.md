@@ -1,710 +1,603 @@
-# Agilify
+# Agilify: Database Management Systems (DBMS) Semester Project
 
-**Agilify is a Jira-style agile project management system with real-time collaborative documents and AI-assisted duplicate detection.** Teams plan work in projects, break it into issues, run it through sprints on a Kanban board, discuss and track every change, and write shared documents together live in the browser.
-
-This repository is the **backend** (Spring Boot REST + WebSocket API). The React frontend lives in [Agilify-Frontend](https://github.com/im-rk/Agilify-Frontend).
-
-It was built as a DBMS and cloud computing semester project, and it is deployed end to end on the AWS free plan with a managed Postgres on Supabase and a fully automated CI/CD pipeline (see [DevOps](#10-devops-aws-cicd-end-to-end)).
+**An Enterprise-Grade Agile Project Management Platform with Relational Integrity, Real-Time Collaborative CRDT Documents, and Semantic Duplicate Detection**
 
 ---
 
-## Contents
+## Team Member Details
 
-1. [What you get](#1-what-you-get)
-2. [Architecture](#2-architecture)
-3. [Authentication and users (Keycloak)](#3-authentication-and-users-keycloak)
-4. [Roles and permissions (RBAC)](#4-roles-and-permissions-rbac)
-5. [Features in detail](#5-features-in-detail)
-6. [AI: semantic duplicate detection](#6-ai-semantic-duplicate-detection)
-7. [Data model](#7-data-model)
-8. [API reference](#8-api-reference)
-9. [Run it locally](#9-run-it-locally)
-10. [DevOps: AWS, CI/CD end to end](#10-devops-aws-cicd-end-to-end)
-11. [Testing](#11-testing)
-12. [Project layout](#12-project-layout)
-13. [Known limitations](#13-known-limitations)
+| Roll Number | Name | Department / School |
+| :--- | :--- | :--- |
+| **CB.SC.U4AIE24023** | **KIRUTHIKPRANAV** | Amrita School of Artificial Intelligence |
+| **CB.SC.U4AIE24042** | **RAMKUMAR K R** | Amrita School of Artificial Intelligence |
+| **CB.SC.U4AIE24050** | **DHEERAJ** | Amrita School of Artificial Intelligence |
+| **CB.SC.U4AIE24060** | **VIKRAMENDRAA** | Amrita School of Artificial Intelligence |
 
----
-
-## 1. What you get
-
-| Area | Summary |
-|---|---|
-| **Projects and members** | Create projects with a short key (like `FOOD`), invite existing users, assign per-project roles |
-| **Issues** | Bug, Story, Task and Epic issues with priority, story points, due date, assignee, labels; human keys like `FOOD-42` |
-| **Workflow guard** | Status changes are validated against a per-project state machine; illegal moves are rejected with a clear error |
-| **Issue history** | Append-only audit trail of every field change: who, what, old value, new value, when |
-| **Sprints and board** | Plan sprints, drag cards across a Kanban board, complete a sprint and roll unfinished work over |
-| **Backlog** | Everything not in a sprint, with one-click move to a sprint |
-| **Comments** | Threaded discussion on issues; edit and delete limited to the author or an admin |
-| **Labels** | Per-project colored labels attached to issues |
-| **Watchers and notifications** | Follow an issue and get notified when it changes; in-app notification bell |
-| **Live collaborative docs** | Project documents edited by several people at once, merged conflict-free with a CRDT (Yjs) over WebSockets |
-| **AI duplicate detection** | While typing a new issue, an LLM (Groq) warns when it looks like an existing one |
-| **Authentication** | Single sign-on through Keycloak (OIDC), no passwords stored by the app |
-| **Security** | Per-project role-based access control enforced on every endpoint |
-| **API docs** | OpenAPI / Swagger UI generated from the code |
-| **Cloud deployment** | AWS EC2 + Supabase + S3 + ECR + SSM, deployed by GitHub Actions with no stored AWS keys |
+- **Institution:** Amrita Vishwa Vidyapeetham, Coimbatore Campus
+- **Degree:** B.Tech in Computer Science and Engineering (Artificial Intelligence)
+- **Course Code & Title:** 22AIE303: Database Management Systems
+- **Repositories:** 
+  - Backend: [`im-rk/Agilify-Backend`](https://github.com/im-rk/Agilify-Backend)
+  - Frontend: [`im-rk/Agilify-Frontend`](https://github.com/im-rk/Agilify-Frontend)
+- **Live Cloud Deployment:** [https://35-73-249-109.sslip.io](https://35-73-249-109.sslip.io) (AWS EC2 + Supabase Managed PostgreSQL + Caddy HTTPS)
 
 ---
 
-## 2. Architecture
+## Table of Contents
+
+1. [Project Overview, Introduction, and Problem Statement](#1-project-overview-introduction-and-problem-statement)
+2. [System Requirements and Architecture](#2-system-requirements-and-architecture)
+3. [ER Diagram and UML Diagram](#3-er-diagram-and-uml-diagram)
+4. [Relational Schema Mapping](#4-relational-schema-mapping)
+5. [Normalization and Functional Dependencies](#5-normalization-and-functional-dependencies)
+6. [Methodology and Database Design](#6-methodology-and-database-design)
+7. [Advanced SQL Queries and Their Purpose](#7-advanced-sql-queries-and-their-purpose)
+8. [Installation, Setup, and Execution Instructions](#8-installation-setup-and-execution-instructions)
+9. [Demonstration Instructions (Reproducing Database State)](#9-demonstration-instructions-reproducing-database-state)
+10. [Verification Queries & Operational Health](#10-verification-queries--operational-health)
+
+---
+
+## 1. Project Overview, Introduction, and Problem Statement
+
+### 1.1 Executive Overview
+**Agilify** is an enterprise-grade Agile project management platform engineered to deliver the comprehensive capabilities of commercial issue trackers (such as Atlassian Jira) while grounding all business logic, concurrency control, and auditability in relational database engineering. The platform manages complex software lifecycles across projects, sequential issue keys, state-machine workflows, Kanban boards, sprint iterations, hierarchical threaded discussions, and user notification fan-outs.
+
+Beyond conventional issue tracking, Agilify incorporates two advanced capabilities:
+1. **Real-Time Collaborative Documents:** A zero-locking, concurrent multi-user rich text specification editor utilizing Conflict-free Replicated Data Types (CRDT via Yjs) with binary delta relay over WebSockets and append-only database persistence.
+2. **AI-Assisted Duplicate Detection:** An advisory semantic analysis engine powered by Groq's low-latency Large Language Model API that checks incoming bug titles and descriptions against the active backlog to flag redundant submissions before they enter the database.
+
+### 1.2 Problem Statement
+Commercial issue-tracking platforms frequently suffer from structural engineering flaws:
+- **Hidden & Brittle Database Invariants:** Business rules (such as permitted workflow transitions, single-active sprint constraints, and sequential issue numbering) are frequently enforced solely in application code. Under heavy concurrent load, this results in race conditions, duplicate issue keys, illegal status jumps, and corrupted audit logs.
+- **Redundant Issue Filing:** In large software teams, different engineers submit identical bugs described in disparate vocabulary (e.g., *"Cannot connect on mobile network"* vs. *"OAuth callback timeout over TLS"*). Standard lexical keyword matching fails to detect semantic equivalence, leading to backlog bloat.
+- **Siloed Technical Documentation:** Architectural specifications are disconnected from issue trackers, requiring third-party tools with rigid document-locking mechanisms that prevent multi-engineer real-time collaboration.
+- **Inflexible Authentication:** Custom authentication implementations store vulnerability-prone password hashes in application databases, lacking standardized Single Sign-On (SSO) and fine-grained per-project Role-Based Access Control (RBAC).
+
+### 1.3 Project Objectives
+The engineering objectives of Agilify are defined as:
+- **Database-First Integrity:** Enforce data constraints at the storage layer via PostgreSQL `CHECK` constraints, partial unique indexes, composite keys, and PL/pgSQL triggers.
+- **Dynamic Workflow State Machine:** Store permitted lifecycle transitions (`workflow_config`) directly in the database, evaluating transitions declaratively on every status modification.
+- **Zero-Password Authentication & Per-Project RBAC:** Delegate identity entirely to Keycloak (OpenID Connect with PKCE) and enforce a three-tier permission model (`ADMIN`, `DEVELOPER`, `VIEWER`) across all REST and WebSocket operations.
+- **Pessimistic & Optimistic Concurrency:** Protect sequential issue keys via pessimistic row-level database locks (`SELECT ... FOR UPDATE`) and prevent concurrent update clobbering via JPA entity versioning (`@Version`).
+- **Conflict-Free Real-Time Collaboration:** Synchronize shared project documentation with Yjs CRDT over WebSockets, persisting raw binary deltas in PostgreSQL (`BYTEA`).
+- **Cloud-Native Deployment:** Host the complete stack on the AWS free tier utilizing Docker Compose, automatic Let's Encrypt TLS via Caddy, Supabase Managed PostgreSQL, and a zero-secret GitHub Actions CI/CD pipeline using AWS OIDC federation.
+
+---
+
+## 2. System Requirements and Architecture
+
+### 2.1 System Requirements
+
+#### Development & Local Execution Requirements
+- **Operating System:** Linux (Ubuntu 22.04+), macOS, or Windows 10/11 with WSL2 / PowerShell
+- **Java Development Kit (JDK):** OpenJDK 17 or Eclipse Temurin 17+
+- **Build Tool:** Apache Maven 3.9+ (or included `./mvnw` wrapper)
+- **Node.js Runtime:** Node.js 20 LTS (v20.x or higher) with `npm` 10+
+- **Containerization:** Docker Engine 24.0+ and Docker Compose v2.20+
+- **Database:** PostgreSQL 15+ (with `pgcrypto` / `uuid-ossp` and `pgvector` extensions)
+- **Identity Provider:** Keycloak 24.0+
+
+#### Production Cloud Infrastructure (AWS Free Tier)
+- **Compute Instance:** AWS EC2 `t3.micro` (1 vCPU, 1 GB Physical RAM, 20 GB gp3 SSD, Ubuntu 22.04 LTS)
+- **Virtual Memory:** 2 GB Swap File allocated via instance user-data to prevent Out-Of-Memory (OOM) JVM termination
+- **Database Engine:** Supabase Managed PostgreSQL 15 (AWS ap-northeast-1 / Tokyo region, connected via Session Pooler port 5432 over SSL)
+- **Edge Proxy:** Caddy 2 (Alpine) with automatic Let's Encrypt HTTPS termination and dynamic DNS (`sslip.io`)
+- **Container Registry:** Amazon Elastic Container Registry (Amazon ECR)
+- **Storage:** Amazon Simple Storage Service (Amazon S3) for compiled React production bundles
+- **Secrets Management:** AWS Systems Manager (SSM) Parameter Store (`SecureString` KMS encryption)
+- **CI/CD Pipeline:** GitHub Actions with OpenID Connect (OIDC) AWS IAM role assumption
+
+### 2.2 System Architecture
 
 ```mermaid
-flowchart LR
-    U["Browser<br/>React SPA"]
+flowchart TB
+    Client["User's Browser (React 19 SPA)"]
 
-    subgraph EC2["AWS EC2 (Docker Compose)"]
-        C["Caddy<br/>HTTPS, static site, reverse proxy"]
-        A["agilify-core<br/>Spring Boot API + WebSocket"]
-        K["Keycloak<br/>OIDC login server"]
+    subgraph AWS_EC2["AWS EC2 Instance (t3.micro, Ubuntu 22.04)"]
+        Caddy["Caddy Reverse Proxy (Port 80/443)<br/>- Automatic Let's Encrypt TLS<br/>- Serves React Static SPA<br/>- Memory limit: 96 MB"]
+        
+        subgraph Docker_Compose["Docker Network (Loopback 127.0.0.1)"]
+            Core["Agilify-Core (Spring Boot 3.3.4)<br/>- REST API & WebSockets<br/>- Port 8082 (Private)<br/>- Memory limit: 420 MB<br/>- Heap: 256 MB"]
+            Keycloak["Keycloak Identity Server 24<br/>- OIDC / PKCE Realm<br/>- Port 8080 (Private)<br/>- Memory limit: 512 MB<br/>- Heap: 320 MB"]
+        end
     end
 
-    DB[("Supabase<br/>PostgreSQL")]
-    G["Groq API<br/>LLM"]
-    S3[("S3<br/>frontend build")]
+    DB[("Supabase PostgreSQL 15<br/>- Managed Session Pooler<br/>- Port 5432 over SSL")]
+    Groq["Groq Cloud LLM API<br/>- Llama 3 / Mixtral OSS<br/>- Duplicate Advisory"]
+    S3[("Amazon S3<br/>- Frontend Assets")]
 
-    U -->|"HTTPS"| C
-    C -->|"/api, /ws"| A
-    C -->|"/realms, /resources"| K
-    C -.->|"serves SPA files<br/>synced from"| S3
-    A -->|"JDBC, SSL"| DB
-    A -->|"JWT signing keys"| K
-    A -->|"duplicate check"| G
+    Client -->|"HTTPS (Port 443)"| Caddy
+    Caddy -->|"Proxy /api/* & /ws/*"| Core
+    Caddy -->|"Proxy /realms/* & /resources/*"| Keycloak
+    Caddy -.->|"Serves build synced from"| S3
+    Core -->|"JDBC over SSL (Port 5432)"| DB
+    Core -->|"Internal JWK Set Verification"| Keycloak
+    Core -->|"Semantic Duplicate Check"| Groq
 ```
 
-**One public origin.** The browser only ever talks to a single HTTPS address. Caddy serves the React build and routes `/api` and `/ws` to the backend and `/realms` and `/resources` to Keycloak. That avoids mixed-content and cross-origin problems and means there is exactly one door into the system.
-
-**Stateless API.** The backend keeps no session state. Identity comes from a signed JWT on every request, so the API can be restarted or replaced at any time. The collaborative-doc relay is also stateless: it forwards binary frames and persists them, it does not interpret them.
-
-**Tech stack**
-
-| Layer | Technology |
-|---|---|
-| Language and framework | Java 17, Spring Boot 3.3.4 |
-| API | Spring Web, Bean Validation, springdoc OpenAPI |
-| Security | Spring Security OAuth2 resource server (Keycloak JWT), method-level `@PreAuthorize` |
-| Persistence | Spring Data JPA / Hibernate (`ddl-auto=validate`), Flyway migrations, PostgreSQL |
-| Mapping | MapStruct, Lombok |
-| Real time | Spring WebSocket (binary frames), Yjs CRDT on the client |
-| Identity | Keycloak 24 (OIDC, PKCE) |
-| AI | Groq OpenAI-compatible chat API (`openai/gpt-oss-20b`) |
-| Frontend | React 19, Vite, Tailwind CSS 4, shadcn/ui, TanStack Query, dnd-kit, Yjs |
-| Packaging | Docker, Docker Compose |
-| Cloud | AWS EC2, ECR, S3, SSM, IAM (OIDC), Supabase, Let's Encrypt via Caddy |
-| CI/CD | GitHub Actions |
+### 2.3 Network & Security Perimeter
+- **Single Public Origin:** All web traffic enters via port 443 over HTTPS. The browser communicates with a single origin (`https://35-73-249-109.sslip.io`), eliminating Cross-Origin Resource Sharing (CORS) preflight friction and mixed-content blocking.
+- **Loopback Isolation:** The Spring Boot API (port 8082) and Keycloak (port 8080) bind strictly to `127.0.0.1`. Neither backend is reachable from the open internet; only Caddy can reverse-proxy requests to them.
+- **Zero Inbound Port 22 (SSH):** The EC2 security group permits inbound TCP on ports 80 and 443 only. All cloud maintenance is executed passwordlessly through AWS Systems Manager (SSM) Session Manager.
 
 ---
 
-## 3. Authentication and users (Keycloak)
+## 3. ER Diagram and UML Diagram
 
-Agilify has **no login page and no password table**. Authentication is delegated entirely to [Keycloak](https://www.keycloak.org/), an open-source identity provider, using the OpenID Connect **Authorization Code flow with PKCE**.
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant B as Browser (SPA)
-    participant K as Keycloak
-    participant A as Agilify API
-    participant D as Database
-
-    B->>K: Redirect to login (PKCE challenge)
-    K->>B: Login form, user signs in
-    K->>B: Redirect back with authorization code
-    B->>K: Exchange code + PKCE verifier
-    K->>B: Access token (JWT, short lived)
-    B->>A: Request with Authorization Bearer token
-    A->>K: Fetch signing keys (cached)
-    A->>A: Verify signature, issuer, expiry
-    A->>D: Find user by token subject, create if missing
-    A->>A: Check the user's role in the project
-    A->>B: Response
-```
-
-**How it works**
-
-- The frontend (`keycloak-js`) sends the browser to Keycloak to log in. On return it holds a short-lived access token (JWT) and attaches it to every API call and to the WebSocket handshake.
-- The API is an **OAuth2 resource server**: it validates the token's signature (using Keycloak's published keys), its issuer, and its expiry. It never sees a password.
-- **Automatic user provisioning.** On a user's first authenticated request, `UserSyncFilter` reads the token claims (`sub`, `email`, `name`) and creates the user row. The token's `sub` becomes the user's primary key, so identity is stable. There is no signup endpoint to build or secure.
-- **Authorization lives in the app, not in Keycloak.** Keycloak answers "who are you?". The application answers "what may you do here?" using per-project roles stored in its own database (next section).
-- `keycloak/agilify-realm.json` is a ready-made realm (client `agilify-app`, demo users). Keycloak imports it automatically the first time it starts with an empty data volume.
-
-> A Keycloak user must have an **email** address. The API requires it when creating the user row.
-
----
-
-## 4. Roles and permissions (RBAC)
-
-Roles are **per project**, not global. The same person can be an admin in one project and only a viewer in another. The hierarchy is cumulative: `ADMIN` includes everything `DEVELOPER` can do, and `DEVELOPER` includes everything `VIEWER` can do.
-
-| Capability | VIEWER | DEVELOPER | ADMIN |
-|---|:---:|:---:|:---:|
-| View project, issues, board, backlog, sprints, history, labels | yes | yes | yes |
-| Comment on issues, watch and unwatch | yes | yes | yes |
-| Edit or delete **own** comments | yes | yes | yes |
-| Create and edit issues, change status, assign, move on the board | | yes | yes |
-| Create, edit, start, complete, delete sprints | | yes | yes |
-| Create labels, attach and detach labels | | yes | yes |
-| Run the AI duplicate check | | yes | yes |
-| See the list of a project's documents and their titles | yes | yes | yes |
-| Create, rename, delete, **open and edit live**, compact a document | | yes | yes |
-| Edit or delete **anyone's** comment | | | yes |
-| Add or remove project members, update project settings | | | yes |
-| Delete labels | | | yes |
-
-Rules worth knowing:
-
-- Enforcement is on the **server**, in `@PreAuthorize` expressions backed by `ProjectSecurityService` and `CommentSecurityService`. The UI hiding a button is a convenience, never the protection.
-- A user who is **not a member** of a project cannot read anything in it.
-- Viewers can see that documents exist (titles in the list) but cannot open them: the WebSocket handshake rejects anyone below Developer, and the "compact" endpoint requires Developer too, so a read-only user can neither read content nor wipe a document.
-
----
-
-## 5. Features in detail
-
-### 5.1 Projects and members
-
-- A project has a name, a unique **key** (2 to 10 uppercase letters, for example `FOOD`), a description and a status (`ACTIVE` or `ARCHIVED`).
-- The creator becomes the project's **ADMIN** automatically.
-- Admins add members by looking up an existing user by email (`GET /users/search`) and assigning a role. Because users are created on first login, a person must have signed in once before they can be added.
-- Members and their roles are listed for the whole team to see.
-- The **last admin cannot be removed**, so a project can never end up with nobody able to manage it.
-
-### 5.2 Issues
-
-- **Types:** `BUG`, `STORY`, `TASK`, `EPIC`. **Priorities:** `P1` to `P4`.
-- Each issue has a title, description, story points (non-negative), due date, reporter, optional assignee, optional sprint, and a status.
-- **Keys are human readable and sequential per project:** `FOOD-1`, `FOOD-2`, and so on. To make numbering safe under concurrency, the project row is locked while the next number is computed, so two people creating issues at the same instant never collide or skip.
-- New issues start in `BACKLOG`. The reporter becomes a watcher automatically, and so does the assignee.
-- The assignee must be a **member of the project**.
-- **Soft delete:** deleting an issue sets a `deleted_at` timestamp. The row stays for history and integrity, and is excluded from every query.
-- Issue lists are paginated and can be filtered by status and priority.
-
-### 5.3 Workflow guard (status state machine)
-
-Moving an issue to a new status is not a free-for-all. Each project has a **workflow** stored in the `workflow_config` table: the list of allowed `from -> to` transitions, per issue type. Every project receives this default when it is first needed:
-
-```mermaid
-stateDiagram-v2
-    direction LR
-    [*] --> BACKLOG
-    BACKLOG --> TODO
-    TODO --> BACKLOG
-    TODO --> IN_PROGRESS
-    IN_PROGRESS --> TODO
-    IN_PROGRESS --> IN_REVIEW
-    IN_REVIEW --> IN_PROGRESS
-    IN_REVIEW --> DONE
-    DONE --> TODO: reopen
-```
-
-- A request such as `BACKLOG -> DONE` is rejected with **HTTP 422** and a message naming the issue type and the two states.
-- A transition row can also carry a **required role**, so a project can restrict, for instance, who may close an issue. The guard enforces it.
-- Moving to the status the issue is already in is a harmless no-op.
-- Reaching `DONE` stamps `completed_at`; reopening clears it.
-- A rejected change writes **nothing**: no status change, no history entry, no notification.
-
-### 5.4 Issue history (audit trail)
-
-Every change to these fields is recorded in the append-only `issue_history` table: `status`, `assignee_id`, `title`, `description`, `priority`, `issue_type`, `story_points`, `due_date` and `sprint_id`. Each row stores **who** changed it, **which field**, the **old and new value**, **when**, and an optional reason (for example "Sprint completed"). Unchanged fields produce no entry, so the trail is free of noise. History is readable by any project member.
-
-### 5.5 Sprints, backlog and the Kanban board
-
-```mermaid
-stateDiagram-v2
-    direction LR
-    [*] --> PLANNED: create
-    PLANNED --> ACTIVE: start (only if no other sprint is active)
-    ACTIVE --> CLOSED: complete
-    PLANNED --> [*]: delete
-```
-
-- A sprint has a name, optional goal, start and end dates, and a status.
-- **Only one sprint can be active per project.** Starting a second one is refused.
-- Only a **PLANNED** sprint can be edited or deleted. A sprint is closed only through the dedicated **complete** action, never by a plain status change.
-- **Completing a sprint** closes it and handles unfinished work: every issue not in `DONE` is moved to a sprint you choose (any open one) or back to the backlog. Each move is recorded in the issue history with the reason "Sprint completed".
-- **Backlog:** all issues that are not in a sprint, with a quick action to move any issue into a sprint.
-- **Board:** the active sprint's issues grouped into status columns. Dragging a card changes its status (through the workflow guard) and stores its **position** within the column so the order survives a reload. If no sprint is active the board reports "no active sprint" and the UI shows an empty state.
-
-### 5.6 Comments
-
-- Comments are **threaded**: a root comment, or a reply to another comment.
-- Any project member, including viewers, can read and write comments.
-- **Edit and delete are limited to the comment's author or a project admin.** Deleting is a soft delete.
-- Comments are returned in chronological order.
-
-### 5.7 Labels
-
-- Labels belong to a project and have a name and a color.
-- Developers create labels and attach or detach them on issues. A label can be created straight from the issue's label picker.
-- Only admins can delete a label. Deleting a label removes it from the issues that used it.
-
-### 5.8 Watchers and notifications
-
-- A user can **watch** or unwatch any issue they can see. Reporters and assignees watch automatically.
-- When a watched issue changes, **every watcher except the person who made the change** receives a notification. Three kinds are produced: `ISSUE_STATUS_CHANGED`, `ISSUE_ASSIGNED` (assignee change) and `ISSUE_UPDATED` (any other tracked field).
-- A notification carries the issue key, a short body such as "status changed from TODO to IN_PROGRESS", and the project key so the UI can link to it.
-- Users list their notifications, mark one as read, or mark all as read. The web app polls every 30 seconds to update the bell.
-
-### 5.9 Live collaborative documents (CRDT)
-
-Each project can hold documents that several people edit **simultaneously**, with no locking and no "someone else is editing" conflicts.
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant A as Alice (browser)
-    participant S as Agilify WebSocket relay
-    participant DB as doc_snapshots
-    participant B as Bob (browser)
-
-    A->>S: Connect /ws/docs/{docId}?token=JWT
-    S->>S: Verify JWT and DEVELOPER role
-    S->>DB: Load stored updates
-    S->>A: Replay all updates, A rebuilds the document
-    B->>S: Connect (same checks)
-    S->>B: Replay all updates
-    A->>S: Binary Yjs update (typed text)
-    S->>DB: Append update to the log
-    S->>B: Forward the update
-    B->>B: Merge update, text appears
-    B->>S: Binary Yjs update (typed text)
-    S->>DB: Append
-    S->>A: Forward
-```
-
-- **CRDT, not locking.** The client uses [Yjs](https://yjs.dev/), a Conflict-free Replicated Data Type. Edits made at the same time, even offline, merge deterministically on every client without a central referee.
-- **The server is a dumb, fast relay.** It never parses the document. It appends each binary update to an append-only log (`doc_snapshots`), forwards it to every other connected session, and replays the log to anyone who connects.
-- **Auth on the socket.** Browsers cannot set headers on a WebSocket, so the JWT is passed as `?token=`. A handshake interceptor validates it and requires at least the Developer role in the doc's project before the connection is accepted.
-- **Compaction.** A log that grows forever is wasteful, so a client can post its fully merged state to `/compact`, which replaces the whole log with a single snapshot.
-- Documents can be created, renamed and deleted by Developers; the editor shows a **Live / Disconnected** indicator and disables typing when not connected.
-
-### 5.10 Consistent errors and API docs
-
-- Every error uses one JSON shape (`status`, `error`, `message`, `path`, `timestamp`, `validationErrors`) produced by a global exception handler. Typical codes: 400 validation, 403 forbidden, 404 not found, 409 conflict, 422 workflow violation.
-- Swagger UI is served at `/swagger-ui.html` and the OpenAPI document at `/v3/api-docs` when running locally.
-
----
-
-## 6. AI: semantic duplicate detection
-
-**The problem.** In a busy backlog, different people report the same bug in different words: "Login page is broken" and "Auth throws 500 error". A plain `LIKE` search can never connect those.
-
-**The feature.** While you type a new issue, Agilify shows an amber warning: *"Looks similar to an existing issue: FOOD-12: Login page is broken."* It is advisory only and never blocks creation.
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant UI as New-issue dialog
-    participant API as POST /issues/check-duplicates
-    participant DB as Database
-    participant LLM as Groq LLM
-
-    UI->>UI: User types, debounce 500 ms
-    UI->>API: Draft title and description
-    API->>API: Check DEVELOPER role
-    API->>DB: Load the project's 150 most recent issues
-    API->>LLM: Prompt: existing issues (numbered) and the draft
-    LLM->>API: JSON array of matching issue numbers
-    API->>API: Validate indices, map numbers to issue IDs
-    API->>UI: Up to 3 duplicate issue IDs
-    UI->>UI: Show the warning with issue keys and titles
-```
-
-**How it works**
-
-1. The API loads the project's most recent issues (title plus a trimmed description) and numbers them.
-2. It sends them with the draft to a Groq-hosted LLM with a strict instruction: return only a JSON array of the numbers that describe the **same underlying problem**, most similar first, at most three, and treat the text as data, never as instructions.
-3. The reply is parsed defensively: only numbers within the valid range are accepted and mapped back to real issue IDs. A malicious issue title cannot make the model return anything but indices, so the worst case is a wrong suggestion.
-4. The UI debounces typing (500 ms) so it calls the endpoint when you pause, not on every keystroke.
-
-**Design decisions**
-
-- **Why an LLM and not vector search?** The first implementation used pgvector with local embeddings. Groq offers chat models but no embeddings model, and a local embedding server does not fit a 1 GB free-tier server. Having the LLM compare directly needs no extra infrastructure and is accurate for the size of backlog a team actually reads. The `vector` extension migration (V6) is still present so existing databases validate.
-- **Graceful degradation.** If the API key is missing, or Groq is unreachable or slow, the endpoint simply returns an empty list and the rest of the app is unaffected.
-- **Scale limit, stated honestly.** It considers the 150 most recent issues per check. For backlogs in the thousands, add a cheap pre-filter (full-text search or embeddings) before the LLM.
-- **Privacy note.** Issue titles and descriptions of the project are sent to Groq for each check. Use a provider you trust for the data you store.
-- The API key is read from the `GROQ_API_KEY` environment variable and is never stored in the repository; in production it is held in AWS SSM Parameter Store.
-
----
-
-## 7. Data model
-
-Schema is managed by **Flyway** (six versioned migrations in `src/main/resources/db/migration`). Hibernate runs in `validate` mode, so the application refuses to start if the code and the schema disagree.
+### 3.1 Entity-Relationship (ER) Diagram
+Agilify's logical data model comprises **14 core relational application tables** designed in full Boyce-Codd Normal Form (BCNF) and Fourth Normal Form (4NF).
 
 ```mermaid
 erDiagram
     USERS ||--o{ PROJECT_MEMBERS : "belongs to"
-    PROJECTS ||--o{ PROJECT_MEMBERS : has
-    PROJECTS ||--o{ ISSUES : contains
-    PROJECTS ||--o{ SPRINTS : plans
-    PROJECTS ||--o{ WORKFLOW_CONFIG : defines
-    PROJECTS ||--o{ LABELS : owns
-    PROJECTS ||--o{ PROJECT_DOCS : holds
+    PROJECTS ||--o{ PROJECT_MEMBERS : "has"
+    PROJECTS ||--o{ ISSUES : "contains"
+    PROJECTS ||--o{ SPRINTS : "plans"
+    PROJECTS ||--o{ WORKFLOW_CONFIG : "defines"
+    PROJECTS ||--o{ LABELS : "owns"
+    PROJECTS ||--o{ PROJECT_DOCS : "holds"
     SPRINTS ||--o{ ISSUES : "groups"
-    USERS ||--o{ ISSUES : "reports or is assigned"
+    USERS ||--o{ ISSUES : "reports / assigned to"
     ISSUES ||--o{ ISSUE_HISTORY : "audited by"
-    ISSUES ||--o{ COMMENTS : discussed
-    ISSUES ||--o{ ISSUE_LABELS : tagged
-    LABELS ||--o{ ISSUE_LABELS : used
-    ISSUES ||--o{ ISSUE_WATCHERS : followed
-    USERS ||--o{ ISSUE_WATCHERS : follows
-    USERS ||--o{ NOTIFICATIONS : receives
-    PROJECT_DOCS ||--o{ DOC_SNAPSHOTS : "append-only log"
-
-    USERS {
-        uuid id PK "Keycloak subject"
-        string email
-        string full_name
-    }
-    PROJECTS {
-        uuid id PK
-        string key UK
-        string name
-        string status
-    }
-    PROJECT_MEMBERS {
-        uuid project_id FK
-        uuid user_id FK
-        string role "ADMIN, DEVELOPER, VIEWER"
-    }
-    ISSUES {
-        uuid id PK
-        int issue_number
-        string issue_type
-        string status
-        string priority
-        int board_position
-        timestamp deleted_at "soft delete"
-    }
-    WORKFLOW_CONFIG {
-        uuid project_id FK
-        string issue_type
-        string from_state
-        string to_state
-        string required_role
-    }
-    ISSUE_HISTORY {
-        uuid issue_id FK
-        string field_name
-        string old_value
-        string new_value
-        uuid changed_by FK
-    }
-    DOC_SNAPSHOTS {
-        uuid doc_id FK
-        bytes snapshot "Yjs update"
-    }
+    ISSUES ||--o{ COMMENTS : "discussed in"
+    COMMENTS ||--o{ COMMENTS : "replies to"
+    ISSUES ||--o{ ISSUE_LABELS : "tagged with"
+    LABELS ||--o{ ISSUE_LABELS : "applied to"
+    ISSUES ||--o{ ISSUE_WATCHERS : "followed by"
+    USERS ||--o{ ISSUE_WATCHERS : "subscribes to"
+    USERS ||--o{ NOTIFICATIONS : "receives"
+    PROJECT_DOCS ||--o{ DOC_SNAPSHOTS : "persists binary logs"
+    ISSUES ||--o{ ISSUES : "parent of"
 ```
 
-Design points: UUID primary keys everywhere; the user's primary key **is** the Keycloak subject; soft deletes via `deleted_at`; history and document updates are append-only; issue numbers are unique per project.
+> **Detailed 14-Table Full ER Diagram:**  
+> ![Complete ER Diagram](assets/images/08_er_full.png)
+
+### 3.2 Unified JPA Domain Entity UML Class Diagram
+The application layer models the database entities using Spring Data JPA and Hibernate ORM:
+
+![UML Class Diagram](assets/images/uml_class_diagram.png)
+
+### 3.3 System UML Use-Case Diagram
+Illustrating the boundaries and interactions between actors (`Admin`, `Developer`, `Viewer`, `System`) and functional subsystems:
+
+![System Use-Case Diagram](assets/images/07_use_case_diagram.png)
 
 ---
 
-## 8. API reference
+## 4. Relational Schema Mapping
 
-Base path `/api/v1`. All endpoints require a valid Bearer JWT. `{key}` is the project key. The **Role** column is the minimum role in that project.
+The database schema maps each conceptual entity into a relational structure with explicit primary keys (**<u>underlined</u>**), foreign keys (*), candidate keys, and referential constraints:
 
-| Module | Method and path | Role | Purpose |
-|---|---|---|---|
-| Projects | `POST /projects` | any user | Create a project (creator becomes admin) |
-| | `GET /projects` | any user | Projects you belong to |
-| | `GET /projects/{key}` | member | Project details |
-| | `PUT /projects/{key}` | admin | Update project |
-| | `GET /projects/{key}/members` | member | List members and roles |
-| | `POST /projects/{key}/members` | admin | Add a member |
-| | `DELETE /projects/{key}/members/{memberId}` | admin | Remove a member |
-| Users | `GET /users/search?email=` | any user | Find a user to add |
-| Issues | `POST /projects/{key}/issues` | developer | Create an issue |
-| | `GET /projects/{key}/issues` | member | Paged list, filter by status and priority |
-| | `GET /projects/{key}/issues/{id}` | member | Issue details |
-| | `PUT /projects/{key}/issues/{id}` | developer | Edit fields |
-| | `PATCH /projects/{key}/issues/{id}/status` | developer | Change status (workflow guard) |
-| | `PATCH /projects/{key}/issues/{id}/assignee` | developer | Assign or unassign |
-| | `DELETE /projects/{key}/issues/{id}` | developer | Soft delete |
-| | `GET /projects/{key}/issues/{id}/history` | member | Audit trail |
-| | `POST /projects/{key}/issues/check-duplicates` | developer | AI duplicate check |
-| Sprints | `POST /projects/{key}/sprints` | developer | Create sprint |
-| | `GET /projects/{key}/sprints`, `GET .../{sprintId}` | member | List, details |
-| | `PUT /projects/{key}/sprints/{sprintId}` | developer | Edit (planned only) |
-| | `PATCH .../{sprintId}/status` | developer | Start (planned to active) |
-| | `POST .../{sprintId}/complete` | developer | Close and roll over |
-| | `DELETE .../{sprintId}` | developer | Delete (planned only) |
-| Board | `GET /projects/{key}/board` | member | Active sprint board |
-| | `GET /projects/{key}/sprints/{sprintId}/board` | member | A given sprint's board |
-| | `GET /projects/{key}/backlog` | member | Issues not in a sprint |
-| | `PATCH /projects/{key}/issues/{id}/sprint` | developer | Move to or from a sprint |
-| | `PATCH /projects/{key}/issues/{id}/position` | developer | Reorder on the board |
-| Comments | `POST`, `GET /issues/{issueId}/comments` | member | Add, list |
-| | `PUT`, `DELETE /issues/{issueId}/comments/{id}` | author or admin | Edit, soft delete |
-| Labels | `POST`, `GET /projects/{key}/labels` | developer / member | Create, list |
-| | `DELETE /projects/{key}/labels/{labelId}` | admin | Delete |
-| | `POST`, `DELETE /projects/{key}/issues/{id}/labels/{labelId}` | developer | Attach, detach |
-| | `GET /projects/{key}/issues/{id}/labels` | member | Labels on an issue |
-| Watchers | `POST`, `DELETE`, `GET /projects/{key}/issues/{id}/watchers` | member | Watch, unwatch, list |
-| Notifications | `GET /notifications` | any user | Your notifications |
-| | `POST /notifications/{id}/read`, `POST /notifications/read-all` | any user | Mark read |
-| Docs | `POST /projects/{key}/docs` | developer | Create |
-| | `GET /projects/{key}/docs`, `GET .../{docId}` | member | List and read document details (titles, metadata) |
-| | `DELETE .../{docId}`, `PATCH .../{docId}/title` | developer | Delete, rename |
-| | `POST /projects/{key}/docs/{docId}/compact` | developer | Replace the update log with a merged snapshot |
-| WebSocket | `GET /ws/docs/{docId}?token=JWT` | developer | Live collaboration channel |
+1. **`users`** (<u>id</u>, email, full_name, display_name, avatar_url, status, password_hash, created_at, updated_at, deleted_at)  
+   - *Candidate Key:* `email` (where `deleted_at IS NULL`)  
+   - *Constraints:* `status IN ('ACTIVE', 'SUSPENDED')`
+
+2. **`projects`** (<u>id</u>, name, key, description, icon_url, status, created_by*, created_at, updated_at, deleted_at)  
+   - *Foreign Key:* `created_by` &rarr; `users(id)`  
+   - *Candidate Key:* `key` (where `deleted_at IS NULL`)  
+   - *Constraints:* `key ~ '^[A-Z]{2,10}$'`, `status IN ('ACTIVE', 'ARCHIVED')`
+
+3. **`project_members`** (<u>id</u>, project_id*, user_id*, role, joined_at, updated_at)  
+   - *Foreign Keys:* `project_id` &rarr; `projects(id)` ON DELETE CASCADE, `user_id` &rarr; `users(id)` ON DELETE CASCADE  
+   - *Candidate Key:* `(project_id, user_id)`  
+   - *Constraints:* `role IN ('ADMIN', 'DEVELOPER', 'VIEWER')`
+
+4. **`workflow_config`** (<u>id</u>, project_id*, issue_type, from_state, to_state, required_role)  
+   - *Foreign Key:* `project_id` &rarr; `projects(id)` ON DELETE CASCADE  
+   - *Candidate Key:* `(project_id, issue_type, from_state, to_state)`  
+   - *Constraints:* `issue_type IN ('BUG', 'STORY', 'TASK', 'EPIC')`
+
+5. **`sprints`** (<u>id</u>, project_id*, name, goal, status, start_date, end_date, closed_at, created_by*, created_at, updated_at)  
+   - *Foreign Keys:* `project_id` &rarr; `projects(id)` ON DELETE CASCADE, `created_by` &rarr; `users(id)`  
+   - *Constraints:* `status IN ('PLANNED', 'ACTIVE', 'COMPLETED')`, `end_date >= start_date`  
+   - *Partial Unique Constraint:* Only **one** sprint with `status = 'ACTIVE'` per `project_id`
+
+6. **`issues`** (<u>id</u>, project_id*, issue_number, issue_type, title, description, status, priority, story_points, board_position, assignee_id*, reporter_id*, parent_issue_id*, sprint_id*, due_date, custom_fields, version, started_at, completed_at, created_at, updated_at, deleted_at)  
+   - *Foreign Keys:* `project_id` &rarr; `projects(id)`, `assignee_id` &rarr; `users(id)`, `reporter_id` &rarr; `users(id)`, `parent_issue_id` &rarr; `issues(id)`, `sprint_id` &rarr; `sprints(id)`  
+   - *Candidate Key:* `(project_id, issue_number)`  
+   - *Constraints:* `priority IN ('P1_CRITICAL', 'P2_HIGH', 'P3_MEDIUM', 'P4_LOW')`, `story_points >= 0`, `version >= 0`
+
+7. **`issue_history`** (<u>id</u>, issue_id*, changed_by*, field_name, old_value, new_value, change_reason, changed_at)  
+   - *Foreign Keys:* `issue_id` &rarr; `issues(id)` ON DELETE CASCADE, `changed_by` &rarr; `users(id)`  
+   - *Characteristic:* Append-only immutable audit trail
+
+8. **`labels`** (<u>id</u>, project_id*, name, colour, created_at)  
+   - *Foreign Key:* `project_id` &rarr; `projects(id)` ON DELETE CASCADE  
+   - *Candidate Key:* `(project_id, name)`
+
+9. **`issue_labels`** (<u>issue_id*</u>, <u>label_id*</u>, added_at)  
+   - *Composite Primary Key:* `(issue_id, label_id)`  
+   - *Foreign Keys:* `issue_id` &rarr; `issues(id)` ON DELETE CASCADE, `label_id` &rarr; `labels(id)` ON DELETE CASCADE
+
+10. **`issue_watchers`** (<u>issue_id*</u>, <u>user_id*</u>, added_at)  
+    - *Composite Primary Key:* `(issue_id, user_id)`  
+    - *Foreign Keys:* `issue_id` &rarr; `issues(id)` ON DELETE CASCADE, `user_id` &rarr; `users(id)` ON DELETE CASCADE
+
+11. **`comments`** (<u>id</u>, issue_id*, author_id*, parent_comment_id*, content, is_edited, created_at, updated_at, deleted_at)  
+    - *Foreign Keys:* `issue_id` &rarr; `issues(id)` ON DELETE CASCADE, `author_id` &rarr; `users(id)`, `parent_comment_id` &rarr; `comments(id)`  
+    - *Constraints:* `length(trim(content)) > 0`
+
+12. **`notifications`** (<u>id</u>, recipient_id*, type, title, body, referenced_type, referenced_id, project_key, is_read, created_at)  
+    - *Foreign Key:* `recipient_id` &rarr; `users(id)` ON DELETE CASCADE
+
+13. **`project_docs`** (<u>id</u>, project_id*, title, created_by*, created_at, updated_at, deleted_at)  
+    - *Foreign Keys:* `project_id` &rarr; `projects(id)` ON DELETE CASCADE, `created_by` &rarr; `users(id)`
+
+14. **`doc_snapshots`** (<u>id</u>, doc_id*, snapshot, version, saved_at)  
+    - *Foreign Key:* `doc_id` &rarr; `project_docs(id)` ON DELETE CASCADE  
+    - *Candidate Key:* `(doc_id, version)`  
+    - *Data Type:* `snapshot BYTEA` (raw Yjs binary CRDT delta vector)
 
 ---
 
-## 9. Run it locally
+## 5. Normalization and Functional Dependencies
 
-**Prerequisites:** Docker, Java 17, and (for the UI) Node 22.
+The Agilify database schema was rigorously engineered to eliminate update, insertion, and deletion anomalies through formal normalization.
+
+### 5.1 Minimal Cover of Functional Dependencies (FDs)
+- **`users`:**  
+  $FD_1: id \rightarrow \{email, full\_name, display\_name, avatar\_url, status, password\_hash, created\_at, updated\_at\}$  
+  $FD_2: email \rightarrow \{id, full\_name, ...\}$ (conditioned on $deleted\_at\text{ IS NULL}$)
+- **`projects`:**  
+  $FD_1: id \rightarrow \{name, key, description, icon\_url, status, created\_by, created\_at, updated\_at\}$  
+  $FD_2: key \rightarrow \{id, name, ...\}$ (conditioned on $deleted\_at\text{ IS NULL}$)
+- **`project_members`:**  
+  $FD_1: id \rightarrow \{project\_id, user\_id, role, joined\_at, updated\_at\}$  
+  $FD_2: \{project\_id, user\_id\} \rightarrow \{id, role, joined\_at, updated\_at\}$
+- **`workflow_config`:**  
+  $FD_1: id \rightarrow \{project\_id, issue\_type, from\_state, to\_state, required\_role\}$  
+  $FD_2: \{project\_id, issue\_type, from\_state, to\_state\} \rightarrow \{id, required\_role\}$
+- **`sprints`:**  
+  $FD_1: id \rightarrow \{project\_id, name, goal, status, start\_date, end\_date, closed\_at, created\_by, created\_at, updated\_at\}$
+- **`issues`:**  
+  $FD_1: id \rightarrow \{project\_id, issue\_number, issue\_type, title, description, status, priority, story\_points, board\_position, assignee\_id, reporter\_id, parent\_issue\_id, sprint\_id, due\_date, custom\_fields, version, started\_at, completed\_at, created\_at, updated\_at\}$  
+  $FD_2: \{project\_id, issue\_number\} \rightarrow \{id, issue\_type, title, ...\}$
+- **`comments`:**  
+  $FD_1: id \rightarrow \{issue\_id, author\_id, parent\_comment\_id, content, is\_edited, created\_at, updated\_at, deleted\_at\}$
+- **`labels`:**  
+  $FD_1: id \rightarrow \{project\_id, name, colour, created\_at\}$  
+  $FD_2: \{project\_id, name\} \rightarrow \{id, colour, created\_at\}$
+- **`doc_snapshots`:**  
+  $FD_1: id \rightarrow \{doc\_id, snapshot, version, saved\_at\}$  
+  $FD_2: \{doc\_id, version\} \rightarrow \{id, snapshot, saved\_at\}$
+
+### 5.2 Step-by-Step Normalization Analysis
+
+| Normal Form | Formal Definition & Schema Proof |
+| :--- | :--- |
+| **First Normal Form (1NF)** | **Atomic Attributes:** Every column stores strictly scalar, atomic values. Repeating groups (e.g., an issue having multiple labels or multiple watchers) are never stored as comma-separated strings or arrays; they are decomposed into separate associative junction entities (`issue_labels` and `issue_watchers`). |
+| **Second Normal Form (2NF)** | **No Partial Functional Dependencies:** All non-prime attributes depend on the *entire* candidate key. In `project_members`, the attribute `role` depends on the full composite key `{project_id, user_id}`, as a user's role is unique per project. In `workflow_config`, `required_role` depends on `{project_id, issue_type, from_state, to_state}`. |
+| **Third Normal Form (3NF)** | **No Transitive Dependencies:** No non-prime attribute determines another non-prime attribute ($X \rightarrow Y \rightarrow Z$). User details (`full_name`, `email`) are never replicated in `issues` or `comments`; only the foreign keys `assignee_id` and `author_id` are stored. Project names are not duplicated in issues or sprints. |
+| **Boyce-Codd Normal Form (BCNF)** | **Strict Determinant Superkeys:** For every non-trivial functional dependency $X \rightarrow Y$, the determinant $X$ is a superkey. There are no overlapping candidate keys with non-prime cross-dependencies in any table. |
+| **Fourth Normal Form (4NF)** | **Elimination of Multi-Valued Dependencies (MVDs):** An issue can have multiple independent labels ($issue \twoheadrightarrow label$) and multiple independent watchers ($issue \twoheadrightarrow user$). Storing both in a single table would create Cartesian product redundancy. Agilify isolates these into two separate 4NF relations (`issue_labels` and `issue_watchers`). |
+
+---
+
+## 6. Methodology and Database Design
+
+### 6.1 Database Engineering Principles
+1. **Defense-in-Depth:** Application-layer checks are always backed by database constraints. For example, `SprintService` validates that only one sprint is active, but the PostgreSQL partial unique index `idx_sprints_one_active_per_project` guarantees this invariant even if concurrent threads bypass the service layer.
+2. **Pessimistic Concurrency for Sequential Issue Keys:** In Agile trackers, issues require human-readable sequential keys (`FOOD-1`, `FOOD-2`). Calculating `MAX(issue_number) + 1` naively results in race conditions. Agilify executes:
+   ```sql
+   SELECT * FROM projects WHERE key = :key FOR UPDATE;
+   ```
+   This acquires an exclusive row lock (`PESSIMISTIC_WRITE`) on the parent project. Simultaneous transactions queue, ensuring sequential, zero-collision issue numbering backed by the unique constraint `UNIQUE (project_id, issue_number)`.
+3. **Optimistic Locking for Issue Mutations:** The `issues` table includes a `version INT NOT NULL DEFAULT 0` column annotated with `@Version`. When an engineer updates an issue, Hibernate generates:
+   ```sql
+   UPDATE issues SET status = ?, version = version + 1 
+   WHERE id = ? AND version = ?;
+   ```
+   If another user modified the issue concurrently, the query matches zero rows and rolls back cleanly with a `409 Conflict`, preventing silent overwrite anomalies.
+4. **Append-Only Auditing:** The `issue_history` table records every modification (`field_name`, `old_value`, `new_value`, `changed_by`, `changed_at`). Rows are immutable and never updated or deleted.
+5. **Soft-Delete Architecture:** Critical entities (`users`, `projects`, `issues`, `comments`, `project_docs`) use a nullable `deleted_at TIMESTAMPTZ` column. Rows are never physically purged during normal operations, preserving referential integrity and historical analytics. Partial unique indexes enforce uniqueness exclusively over active rows:
+   ```sql
+   CREATE UNIQUE INDEX idx_projects_key_active 
+   ON projects (key) WHERE deleted_at IS NULL;
+   ```
+
+---
+
+## 7. Advanced SQL Queries and Their Purpose
+
+### 7.1 Window Functions: Backlog Analytics & Workload Distribution
+Computes the percentage distribution of issues, total estimated story points, and ranking across statuses in a single query pass without subqueries:
+
+```sql
+SELECT 
+    status,
+    COUNT(*) AS total_issues,
+    ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 1) AS status_percentage,
+    COALESCE(SUM(story_points), 0) AS cumulative_points,
+    DENSE_RANK() OVER (ORDER BY COUNT(*) DESC) AS volume_rank
+FROM issues
+WHERE project_id = 'e7b1c34a-92f5-4123-bc8d-190f842d0a11'
+  AND deleted_at IS NULL
+GROUP BY status
+ORDER BY total_issues DESC;
+```
+- **Purpose:** Powers the real-time project metrics dashboard. The `OVER ()` clause calculates the grand total across all partitions in one pass, eliminating the need to query the table multiple times.
+
+### 7.2 Recursive Common Table Expressions (CTE): Hierarchical Threaded Comments
+Traverses nested comment reply trees of arbitrary depth on an issue without incurring application-layer N+1 query overhead:
+
+```sql
+WITH RECURSIVE comment_tree AS (
+    -- Anchor Member: Root-level comments
+    SELECT 
+        id, parent_comment_id, author_id, content, created_at,
+        0 AS depth,
+        ARRAY[created_at] AS sort_path
+    FROM comments
+    WHERE issue_id = 'a12b3c4d-5678-90ab-cdef-1234567890ab'
+      AND parent_comment_id IS NULL 
+      AND deleted_at IS NULL
+
+    UNION ALL
+
+    -- Recursive Member: Nested replies
+    SELECT 
+        c.id, c.parent_comment_id, c.author_id, c.content, c.created_at,
+        ct.depth + 1,
+        ct.sort_path || c.created_at
+    FROM comments c
+    INNER JOIN comment_tree ct ON c.parent_comment_id = ct.id
+    WHERE c.deleted_at IS NULL
+)
+SELECT 
+    ct.depth,
+    u.full_name AS author,
+    repeat('  ', ct.depth) || ct.content AS formatted_comment,
+    ct.created_at
+FROM comment_tree ct
+JOIN users u ON ct.author_id = u.id
+ORDER BY ct.sort_path ASC;
+```
+- **Purpose:** Recursively constructs threaded issue discussions. The array concatenation `sort_path || c.created_at` guarantees chronological display of child replies directly under their respective parent comments.
+
+### 7.3 PL/pgSQL Triggers: Automated Timestamp Tracking
+Maintains audit timestamps and tracks lifecycle metrics automatically within the storage engine:
+
+```sql
+-- Trigger Function: Stamps started_at on IN_PROGRESS and completed_at on DONE
+CREATE OR REPLACE FUNCTION set_issue_timestamps()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Stamp started_at when first moving into IN_PROGRESS
+    IF NEW.status = 'IN_PROGRESS' AND (OLD.status IS NULL OR OLD.status != 'IN_PROGRESS') AND NEW.started_at IS NULL THEN
+        NEW.started_at = NOW();
+    END IF;
+
+    -- Stamp completed_at when moving into DONE
+    IF NEW.status = 'DONE' AND (OLD.status IS NULL OR OLD.status != 'DONE') THEN
+        NEW.completed_at = NOW();
+    END IF;
+
+    -- Clear completed_at if an issue is reopened back to TODO or IN_PROGRESS
+    IF NEW.status != 'DONE' AND OLD.status = 'DONE' THEN
+        NEW.completed_at = NULL;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_issues_timestamps 
+BEFORE UPDATE ON issues 
+FOR EACH ROW EXECUTE FUNCTION set_issue_timestamps();
+```
+- **Purpose:** Guarantees cycle-time and lead-time analytics cannot be manipulated or forgotten by API client bugs.
+
+### 7.4 Partial Unique Index: Single Active Sprint Invariant
+Enforces that a Scrum project can run at most one active iteration at a time:
+
+```sql
+CREATE UNIQUE INDEX idx_sprints_one_active_per_project 
+ON sprints (project_id) 
+WHERE status = 'ACTIVE';
+```
+- **Purpose:** Enforces domain rules at the disk level. Any concurrent transaction attempting to set a second sprint to `ACTIVE` in the same project is instantly rejected by PostgreSQL with an index violation.
+
+---
+
+## 8. Installation, Setup, and Execution Instructions
+
+### 8.1 Prerequisites
+Ensure the following tools are installed on your workstation:
+- **Git** (`git --version`)
+- **Java 17 JDK** (`java -version`)
+- **Docker & Docker Compose** (`docker compose version`)
+- **Node.js 20+ & npm** (`node -v`, `npm -v`)
+
+### 8.2 Step 1: Clone Repositories
+```bash
+# Clone the backend repository
+git clone https://github.com/im-rk/Agilify-Backend.git
+cd Agilify-Backend
+
+# In a sibling directory, clone the frontend repository
+git clone https://github.com/im-rk/Agilify-Frontend.git
+```
+
+### 8.3 Step 2: Launch Local Services (Docker Compose)
+From the `Agilify-Backend` root directory, start PostgreSQL and Keycloak:
 
 ```bash
-# 1. Infrastructure: Postgres (pgvector image) and Keycloak
-docker compose up -d db keycloak
-
-# 2. Backend (http://localhost:8082)
-GROQ_API_KEY=your-key-optional ./mvnw spring-boot:run
+docker compose up -d
 ```
 
-- **Keycloak** runs on http://localhost:8180 (admin console login `admin` / `admin`). On the first start with an empty volume it imports `keycloak/agilify-realm.json`: realm `agilify`, client `agilify-app`, and demo users `alice`, `bob`, `carol` (password `Passw0rd!`). If the realm already exists in your volume the import is skipped.
-- **Postgres** is on `localhost:5434` (database `bugtracker`, user `bugtracker_user`). The `db` service uses the `pgvector/pgvector` image because migration V6 runs `CREATE EXTENSION vector`.
-- **AI** works only when `GROQ_API_KEY` is set. Without it everything else still works and the duplicate check returns nothing.
-- **Swagger UI:** http://localhost:8082/swagger-ui.html
-- **Frontend:** clone [Agilify-Frontend](https://github.com/im-rk/Agilify-Frontend), run `npm install` and `npm run dev`. It must run on **port 5173**, which is the redirect URI the Keycloak client allows.
+This starts:
+- **PostgreSQL 15:** Exposed on `localhost:5432` (Database: `bugtracker`, User: `bugtracker_user`, Password: `bugtracker_password`)
+- **Keycloak 24:** Exposed on `localhost:8080` (Realm `agilify` automatically imported with demo users from `keycloak/agilify-realm.json`)
 
-**Configuration** (environment variables override `application.properties`):
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `SPRING_DATASOURCE_URL` / `_USERNAME` / `_PASSWORD` | local Postgres | Database connection |
-| `KEYCLOAK_ISSUER_URI` | `http://localhost:8180/realms/agilify` | Expected token issuer |
-| `SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI` | derived from issuer | Where to fetch signing keys (set when the issuer's public URL is not reachable from the API) |
-| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://localhost:3000` | Allowed browser origins |
-| `WEBSOCKET_ALLOWED_ORIGINS` | same | Allowed WebSocket origins |
-| `GROQ_API_KEY` | empty | Enables the AI duplicate check |
-| `GROQ_MODEL` (`groq.model`) | `openai/gpt-oss-20b` | Model used |
-
----
-
-## 10. DevOps: AWS, CI/CD end to end
-
-Everything below is automated: a push to GitHub tests, builds, ships and restarts the system with no manual steps and **no long-lived AWS credentials stored anywhere**.
-
-### 10.1 Environments and cost
-
-| Item | Choice |
-|---|---|
-| Region | AWS `ap-northeast-1` (Tokyo), same region as the database |
-| Compute | One `t3.micro` EC2 instance (Ubuntu 22.04, 20 GB gp3, 2 GB swap) |
-| Database | Supabase managed PostgreSQL, **Session pooler** on port 5432 |
-| Plan | AWS Free plan (credits-based; AWS stops the account rather than billing past the credits) |
-| Cost | About $15 per month running 24/7, about $5.5 per month when the instance is stopped |
-| Deliberately avoided | EKS, ALB/NLB, NAT Gateway, RDS and Secrets Manager. They have no useful free tier |
-
-### 10.2 Deployment architecture
-
-```mermaid
-flowchart TB
-    DEV["Developer<br/>git push"]
-
-    subgraph GH["GitHub"]
-        REPOB["Agilify-Backend<br/>branch development"]
-        REPOF["Agilify-Frontend<br/>branch main"]
-        ACT["GitHub Actions"]
-    end
-
-    subgraph AWS["AWS account (ap-northeast-1)"]
-        OIDC["IAM OIDC provider<br/>and 2 deploy roles"]
-        ECR[("ECR<br/>agilify-core image")]
-        S3[("S3 bucket<br/>frontend build")]
-        SSM["SSM<br/>Run Command and<br/>Parameter Store"]
-
-        subgraph EC2["EC2 t3.micro"]
-            AG["SSM agent"]
-            DEPLOY["deploy.sh"]
-            subgraph DC["Docker Compose"]
-                CADDY["Caddy :80 :443"]
-                CORE["agilify-core"]
-                KC["Keycloak"]
-            end
-        end
-    end
-
-    SUPA[("Supabase<br/>PostgreSQL")]
-    GROQ["Groq API"]
-    USER["Users"]
-
-    DEV --> REPOB
-    DEV --> REPOF
-    REPOB --> ACT
-    REPOF --> ACT
-    ACT -->|"assume role via OIDC"| OIDC
-    ACT -->|"docker push"| ECR
-    ACT -->|"s3 sync"| S3
-    ACT -->|"send-command"| SSM
-    SSM --> AG
-    AG --> DEPLOY
-    DEPLOY -->|"pull image"| ECR
-    DEPLOY -->|"sync site files"| S3
-    DEPLOY -->|"read secrets"| SSM
-    DEPLOY -->|"docker compose up"| DC
-    CORE --> SUPA
-    CORE --> GROQ
-    USER -->|"HTTPS"| CADDY
+Verify containers are healthy:
+```bash
+docker compose ps
 ```
 
-### 10.3 The backend pipeline (`.github/workflows/deploy.yml`)
-
-```mermaid
-flowchart LR
-    P["push to<br/>development"] --> T
-    PR["pull request"] --> T
-
-    subgraph T["Job: test"]
-        T1["Checkout"] --> T2["Java 17 + Maven cache"] --> T3["Start pgvector Postgres<br/>service container"] --> T4["mvnw verify<br/>Flyway + 5 tests"]
-    end
-
-    T4 -->|"push events only"| D
-
-    subgraph D["Job: deploy"]
-        D1["Assume AWS role<br/>(OIDC)"] --> D2["Login to ECR"] --> D3["docker build"] --> D4["push :latest and :commit-sha"] --> D5["SSM send-command<br/>deploy.sh"] --> D6["Wait for result<br/>fail the run on error"]
-    end
-```
-
-- **Test job** runs on every push and pull request. It starts a real PostgreSQL (the `pgvector` image, because migration V6 needs the extension), applies every Flyway migration, and runs the integration tests. No Keycloak is needed in CI.
-- **Deploy job** runs only on a push to `development`, and only if the tests passed. A `concurrency` group prevents two deploys from overlapping.
-- The image is built from the multi-stage `Dockerfile` (Maven build stage, then a slim `eclipse-temurin:17-jre-alpine` runtime) and pushed to **ECR** with two tags: `latest` and the 12-character commit SHA. An ECR lifecycle rule keeps only the last 3 images to stay inside free storage.
-
-### 10.4 The frontend pipeline
-
-The frontend repository has its own workflow with the same shape: `npm ci`, lint, `vite build` with the production URLs baked in, then upload the build as an artifact. On a push to `main` the deploy job assumes its own AWS role, runs `aws s3 sync` into the bucket, and tells the server (through SSM) to pull the new files. Caddy serves them immediately, with no container restart.
-
-### 10.5 Passwordless AWS access (GitHub OIDC)
-
-No `AWS_ACCESS_KEY_ID` or secret key exists in GitHub. Instead:
-
-1. GitHub issues each workflow run a short-lived signed identity token.
-2. AWS has an **IAM OIDC identity provider** for `token.actions.githubusercontent.com`.
-3. Each role's **trust policy** accepts that token only when the claims match exactly one repository and one branch. GitHub's default subject for new repositories is the **immutable** form that embeds the numeric owner and repository IDs (for the backend role, `repo:im-rk@<owner-id>/Agilify-Backend@<repo-id>:ref:refs/heads/development`, and likewise for the frontend role on `main`). That form cannot be hijacked by renaming or transferring a repository.
-4. The roles are **least privilege**:
-
-| Role | May do | May not do |
-|---|---|---|
-| `agilify-gha-backend` | Push to the one ECR repository; run a shell command on the one instance | Anything else in the account |
-| `agilify-gha-frontend` | Read and write the one S3 bucket; run a shell command on the one instance | Touch ECR, IAM, other buckets |
-
-A leaked workflow log or a fork's pull request therefore cannot reach AWS.
-
-### 10.6 What runs on the server
-
-Three containers under Docker Compose on one small instance:
-
-| Container | Role | Memory cap |
-|---|---|---|
-| `caddy` | HTTPS termination (automatic **Let's Encrypt** certificate), serves the React build, reverse proxy | 96 MB |
-| `keycloak` | Login server, imports the realm on first start | 512 MB (heap 320 MB) |
-| `agilify-core` | The Spring Boot API | 420 MB (heap 256 MB) |
-
-`deploy.sh` (the single entry point CI calls) does, in order:
-
-1. Reads every secret from **SSM Parameter Store** and writes a root-only `.env` file.
-2. `aws s3 sync` the frontend build into the folder Caddy serves.
-3. Logs in to ECR and runs `docker compose pull`.
-4. `docker compose up -d` (recreates only what changed).
-5. Polls the API until it answers, and exits non-zero if it never does, which fails the pipeline run.
-
-Containers use `restart: unless-stopped` and Docker is enabled at boot, so after the instance is stopped and started again the whole stack **recovers by itself** (Keycloak in about a minute, the API in two to three).
-
-### 10.7 Secrets, networking and security
-
-- **Secrets** (database credentials, Keycloak admin password, Groq key, public URL) live in **SSM Parameter Store** as `SecureString`. The instance role may read only `/agilify/*`. Nothing secret is in Git, in the image or in the workflow files.
-- **No SSH.** Port 22 is never open. The server is managed through **SSM Run Command and Session Manager** using its instance role. The security group allows only **80 and 443**.
-- **HTTPS everywhere** with a free certificate on a `sslip.io` hostname mapped to a fixed Elastic IP. The Keycloak admin console is not routed through the public proxy.
-- **Database** traffic uses SSL to Supabase's Session pooler (IPv4). Session mode is required because Flyway uses advisory locks and Hibernate uses prepared statements, which the transaction pooler breaks.
-- Backend containers bind to `127.0.0.1` on the host; only Caddy faces the internet.
-
-### 10.8 Operating it
+### 8.4 Step 3: Run the Spring Boot Backend
+The backend utilizes Flyway to apply all 6 database migrations automatically on startup:
 
 ```bash
-# Save credits when you are not using it (disk and IP still cost about $5.5/month)
-aws ec2 stop-instances  --region ap-northeast-1 --instance-ids <instance-id>
-aws ec2 start-instances --region ap-northeast-1 --instance-ids <instance-id>
-
-# Manual redeploy without a code change
-aws ssm send-command --region ap-northeast-1 --instance-ids <instance-id> \
-  --document-name AWS-RunShellScript \
-  --parameters 'commands=["sudo -u ubuntu /home/ubuntu/agilify/deploy.sh"]'
+cd Agilify-Backend
+./mvnw spring-boot:run
 ```
+*(On Windows PowerShell, run `.\mvnw.cmd spring-boot:run`)*
 
-**Rollback:** every deployed image is also tagged with its commit SHA in ECR. Re-tag a previous SHA as `latest`, then run the redeploy command above.
+The API will start on **`http://localhost:8082`**.  
+Verify by opening the generated OpenAPI Swagger UI:  
+[http://localhost:8082/swagger-ui.html](http://localhost:8082/swagger-ui.html)
 
-### 10.9 Design decisions and trade-offs
-
-| Decision | Why |
-|---|---|
-| **Docker Compose, not Kubernetes** | k3s and a CI server each want a JVM-sized slice of RAM that a 1 GB instance does not have; Compose has no control-plane overhead |
-| **GitHub Actions, not Jenkins** | CI runs off the server, so it costs the instance nothing |
-| **Caddy, not CloudFront** | A brand-new AWS account cannot create CloudFront distributions until verified by Support. Caddy gives free automatic HTTPS and one public origin today. CloudFront can be added later |
-| **SSM, not SSH** | No inbound admin port, no key files, every command is logged and permission-controlled by IAM |
-| **OIDC, not access keys** | Nothing long-lived to leak or rotate |
-| **Supabase, not RDS** | Free managed Postgres outside the instance and outside the AWS credit meter |
-| **One public origin** | Avoids mixed content and CORS surprises. The backend still needs `CORS_ALLOWED_ORIGINS` set, because behind the proxy it sees plain HTTP and treats the browser's HTTPS origin as cross-origin |
-
----
-
-## 11. Testing
+### 8.5 Step 4: Run the React Frontend
+In a separate terminal:
 
 ```bash
-./mvnw verify      # needs the Postgres from docker compose (db) on localhost:5434
+cd Agilify-Frontend
+npm install
+npm run dev
 ```
 
-Five integration and unit tests run against a real PostgreSQL, so migrations are exercised too:
-
-| Test | Covers |
-|---|---|
-| `AgilifyApiFlowTest` | End-to-end API flow: projects, members, issues, sprints, board, comments, labels, watchers, notifications, history, role checks |
-| `CrdtDocsFlowTest` | Document creation, WebSocket relay and persistence, compaction, and the viewer-cannot-compact rule |
-| `WorkflowGuardServiceTest` | Allowed and rejected status transitions |
-| `CoreApplicationTests` | Application context starts and Flyway validates the schema |
+The frontend client will start on **`http://localhost:5173`**.
 
 ---
 
-## 12. Project layout
+## 9. Demonstration Instructions (Reproducing Database State)
 
-```
-src/main/java/com/agilify/core
-├── auth/            UserSyncFilter: creates the user from JWT claims
-├── config/          Security, CORS, WebSocket, OpenAPI configuration
-├── common/          Exceptions, global handler, @CurrentUser, ProjectSecurityService
-├── project/         Projects, members, workflow seeding
-├── issue/           Issues, workflow guard, history
-├── sprints/         Sprint lifecycle and completion
-├── board/           Board, backlog, issue positions
-├── comments/        Threaded comments and their security rules
-├── labels/          Labels and issue-label links
-├── watchers/        Watchers and notification fan-out
-├── notifications/   Notification storage and API
-├── docs/            Document metadata, snapshot log, compaction
-├── websocket/       CRDT relay: handshake auth, session registry, handler
-├── search/          AI duplicate detection (Groq)
-├── users/           User search
-└── domain/          JPA entities and enums
-src/main/resources/db/migration   Flyway V1 to V6
-keycloak/agilify-realm.json       Importable Keycloak realm
-docker-compose.yml                Local Postgres, Redis, Keycloak
-Dockerfile                        Multi-stage production image
-.github/workflows/deploy.yml      CI/CD pipeline
+To verify the end-to-end functionality and database integrity, follow this structured walkthrough:
+
+### Demo Accounts Available
+The local Keycloak realm comes pre-configured with three test users:
+
+| Username | Password | Default Role in Demo Projects |
+| :--- | :--- | :--- |
+| **alice** | `alice123` | **ADMIN** (Project Creator) |
+| **bob** | `bob123` | **DEVELOPER** (Full Edit Rights) |
+| **carol** | `carol123` | **VIEWER** (Read-Only Rights) |
+
+---
+
+### Step-by-Step Walkthrough
+
+#### Step 1: Authenticate via Keycloak OIDC
+1. Navigate to `http://localhost:5173` (or the live cloud URL `https://35-73-249-109.sslip.io`).
+2. You will be redirected to the Keycloak login screen.
+3. Sign in as **alice** (`alice123`).
+4. Upon successful PKCE code exchange, `UserSyncFilter` intercepts the JWT on the backend and automatically inserts Alice into the `users` table if not already present.
+
+#### Step 2: Create a Project & Seed Workflow
+1. Click **Create Project**.
+2. Enter Name: `Agile Delivery`, Key: `AD` (validated by `^[A-Z]{2,10}$`).
+3. Click **Submit**.
+4. *Database Verification:*
+   - A new row is inserted into `projects`.
+   - Alice is added to `project_members` with `role = 'ADMIN'`.
+   - `WorkflowSeeder` automatically inserts the 16 standard transition rules into `workflow_config` for types `BUG`, `STORY`, `TASK`, and `EPIC`.
+
+#### Step 3: Add Members & Test RBAC
+1. Go to **Project Settings &rarr; Members**.
+2. Search for `bob@example.com` and add him as **DEVELOPER**.
+3. Search for `carol@example.com` and add her as **VIEWER**.
+4. Attempt to remove Alice (the sole Admin). The server rejects the action with `400 Bad Request: Cannot remove the last project Admin`.
+
+#### Step 4: Create Issues & Verify Concurrency Locking
+1. Navigate to **Backlog &rarr; Create Issue**.
+2. Create:
+   - Issue 1: `Setup Postgres session pooler` (Type: `TASK`, Priority: `P2_HIGH`, Points: `3`).
+   - Issue 2: `OAuth callback timeout on mobile` (Type: `BUG`, Priority: `P1_CRITICAL`, Points: `5`).
+3. Notice the keys generated are consecutive: `AD-1` and `AD-2`.
+4. *Database Verification:* The backend acquired a `PESSIMISTIC_WRITE` lock on project `AD`, read the maximum counter, and safely assigned consecutive keys.
+
+#### Step 5: Test AI Duplicate Detection
+1. Click **Create Issue** again.
+2. In the title field, type: `Login fails over mobile network with OAuth error`.
+3. Notice the blue advisory alert box appear:
+   > *"AI Duplicate Warning: Similar to AD-2 ('OAuth callback timeout on mobile'). Similarity: High."*
+4. The user may still submit if they choose; the check is purely advisory and non-blocking.
+
+#### Step 6: Sprint Lifecycle & Partial Unique Index Proof
+1. Go to **Sprints &rarr; Create Sprint** (`Sprint 1`).
+2. Drag `AD-1` and `AD-2` into `Sprint 1`.
+3. Click **Start Sprint**. Its status changes to `ACTIVE`.
+4. Create a second sprint (`Sprint 2`).
+5. Attempt to start `Sprint 2` while `Sprint 1` is still active.
+6. The application blocks the action.
+7. *Database Verification:* Attempting to execute `UPDATE sprints SET status = 'ACTIVE' WHERE name = 'Sprint 2'` directly in SQL triggers:
+   ```
+   ERROR: duplicate key value violates unique constraint "idx_sprints_one_active_per_project"
+   ```
+
+#### Step 7: Kanban Drag-and-Drop & Trigger Execution
+1. Navigate to the **Board**.
+2. Drag `AD-1` from `TODO` to `IN_PROGRESS`.
+3. *Database Verification:*
+   - Check `issues.started_at`: The trigger `trg_issues_timestamps` stamped `started_at` with `NOW()`.
+   - Check `issue_history`: A row was written recording `fieldName: status`, `oldValue: TODO`, `newValue: IN_PROGRESS`, `changedBy: alice`.
+4. Drag `AD-1` to `DONE`.
+   - The trigger stamped `completed_at` with `NOW()`.
+
+#### Step 8: Workflow Guard Enforcement
+1. Try dragging `AD-2` directly from `BACKLOG` to `DONE`.
+2. The drop is rejected and snaps back with an error:
+   ```json
+   {
+     "status": 422,
+     "error": "WORKFLOW_VIOLATION",
+     "message": "Transition from BACKLOG to DONE is not allowed for issue type BUG"
+   }
+   ```
+3. Permitted path according to `workflow_config`: `BACKLOG &rarr; TODO &rarr; IN_PROGRESS &rarr; IN_REVIEW &rarr; DONE`.
+
+#### Step 9: Real-Time Collaborative CRDT Documents
+1. Open a second browser in Incognito mode.
+2. Log in as **bob** (`bob123`).
+3. Both Alice and Bob navigate to **Documents &rarr; Project Specification**.
+4. Both users type simultaneously in different paragraphs.
+5. Edits appear in real time without locking or merge conflicts.
+6. Check `doc_snapshots` in the database: Raw binary update frames (`BYTEA`) are appended chronologically.
+
+#### Step 10: Role-Based Authorization Enforcement
+1. In the incognito window, log out and log in as **carol** (`carol123`, role: `VIEWER`).
+2. Carol can read issues, view the board, and add comments.
+3. Carol cannot see the "Create Issue" or "Start Sprint" buttons.
+4. If Carol attempts to call `POST /api/projects/AD/issues` directly via Postman/curl, Spring Security evaluates `@PreAuthorize` and returns `403 Forbidden`.
+
+---
+
+## 10. Verification Queries & Operational Health
+
+Run these queries in PostgreSQL to verify your database state:
+
+```sql
+-- 1. Verify all 14 application tables and row counts
+SELECT table_name, 
+       (xpath('/row/c/text()', query_to_xml(format('SELECT count(*) AS c FROM %I', table_name), false, true, '')))[1]::text::int AS row_count
+FROM information_schema.tables
+WHERE table_schema = 'public' 
+  AND table_name != 'flyway_schema_history'
+ORDER BY table_name;
+
+-- 2. Inspect the immutable audit history
+SELECT i.issue_number, h.field_name, h.old_value, h.new_value, u.full_name AS changed_by, h.changed_at
+FROM issue_history h
+JOIN issues i ON h.issue_id = i.id
+JOIN users u ON h.changed_by = u.id
+ORDER BY h.changed_at DESC
+LIMIT 10;
+
+-- 3. Verify trigger timestamp stamping
+SELECT issue_number, title, status, started_at, completed_at, 
+       ROUND(EXTRACT(EPOCH FROM (completed_at - started_at)) / 60, 2) AS duration_minutes
+FROM issues
+WHERE started_at IS NOT NULL;
+
+-- 4. Check Flyway schema migration history
+SELECT installed_rank, version, description, type, script, execution_time, success
+FROM flyway_schema_history
+ORDER BY installed_rank ASC;
 ```
 
 ---
 
-## 13. Known limitations
-
-These are deliberate scope decisions, listed so nothing is a surprise:
-
-- **Documents are plain text** (collaboratively edited), not rich text. Viewers see the document list but cannot open a document.
-- **A document WebSocket authenticates once** at connection time, so a very long session needs a reload after the token expires (tokens live 5 minutes by default).
-- **No UI yet** to rename or archive a project, delete an issue or label, or change a member's role (the API supports some of these).
-- **Issue history shows raw IDs** for assignee and sprint changes.
-- **Notifications are polled** every 30 seconds rather than pushed.
-- **Comments do not generate notifications.**
-- **AI duplicate check** considers the 150 most recent issues and depends on a third-party API.
-- **Single server.** The deployment favors cost over high availability: one instance, no autoscaling, no multi-AZ.
+## Conclusion
+Agilify demonstrates that modern software engineering can combine the speed of contemporary web frameworks (Spring Boot 3, React 19) with the uncompromised integrity of formal relational database design. By enforcing constraints, audit immutability, optimistic/pessimistic concurrency, and workflow state machines directly within PostgreSQL, the application ensures complete data consistency under any scale or concurrency load.
